@@ -88,6 +88,6 @@ Work is phase-gated: complete and verify each vertical workflow before expanding
 ## Project identity
 
 **Official name:** KrishiBandhu – Your Trusted Partner in Agriculture  
-**Geographic starting point:** Konkan and Goa, with the data model designed to support wider locations.
+**Geographic starting point:** Goa and Maharastra, with the data model designed to support wider locations.
 
 Private and proprietary. All rights reserved.
