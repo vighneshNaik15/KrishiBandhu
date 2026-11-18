@@ -1,0 +1,62 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/(default)/documents/users/$(uid);
+    }
+
+    function isRole(role) {
+      return signedIn()
+        && firestore.exists(userPath(request.auth.uid))
+        && firestore.get(userPath(request.auth.uid)).data.role == role
+        && firestore.get(userPath(request.auth.uid)).data.isActive == true;
+    }
+
+    function jobPath(jobId) {
+      return /databases/(default)/documents/jobs/$(jobId);
+    }
+
+    function validHarvestJob(jobId, farmerId) {
+      return firestore.exists(jobPath(jobId))
+        && firestore.get(jobPath(jobId)).data.requestType == 'harvest_service'
+        && firestore.get(jobPath(jobId)).data.farmerUserId == farmerId;
+    }
+
+    function validImageUpload() {
+      return request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    match /harvestRequests/{farmerId}/{jobId}/{fileName} {
+      allow create, update: if isRole('farmer')
+        && request.auth.uid == farmerId
+        && validHarvestJob(jobId, farmerId)
+        && firestore.get(jobPath(jobId)).data.status == 'draft'
+        && validImageUpload();
+
+      allow read: if (isRole('farmer')
+          && request.auth.uid == farmerId
+          && validHarvestJob(jobId, farmerId))
+        || (isRole('worker')
+          && validHarvestJob(jobId, farmerId)
+          && (
+            firestore.get(jobPath(jobId)).data.status
+              in ['published', 'applications_open']
+            || firestore.get(jobPath(jobId)).data.selectedWorkerIds
+              .hasAny([request.auth.uid])
+          ));
+
+      allow delete: if isRole('farmer')
+        && request.auth.uid == farmerId
+        && validHarvestJob(jobId, farmerId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
