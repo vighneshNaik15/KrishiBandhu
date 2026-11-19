@@ -62,6 +62,7 @@ export const COLLECTIONS = {
   PRODUCTS: 'products',
   PRODUCT_ENQUIRIES: 'productEnquiries',
   ORDERS: 'orders',
+  CROP_DISEASE_ANALYSES: 'cropDiseaseAnalyses',
   SCHEMES: 'schemes',
   TRANSACTIONS: 'transactions',
   REVIEWS: 'reviews',
@@ -106,6 +107,8 @@ export const ROUTES = {
   FARMER_PRODUCTS_NEW: '/farmer/products/new',
   FARMER_ORDERS: '/farmer/orders',
   FARMER_ADVISORY: '/farmer/advisory',
+  FARMER_CROP_DOCTOR: '/farmer/crop-doctor',
+  FARMER_CROP_DOCTOR_HISTORY: '/farmer/crop-doctor/history',
   FARMER_WEATHER: '/farmer/weather',
   FARMER_SCHEMES: '/farmer/schemes',
 

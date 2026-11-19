@@ -20,7 +20,8 @@
 | Authentication | Firebase Authentication |
 | Primary data | Cloud Firestore |
 | Image storage | Firebase Storage |
-| Crop and chat AI | Planned server-side use of installed `@google/genai`; no Gemini route or workflow is implemented yet |
+| Crop disease inference | Separate FastAPI service; TensorFlow 2.15 / TensorFlow Hub 0.16; four private mounted H5 models |
+| Agricultural chat | Planned server-side use of installed `@google/genai`; no Gemini chat workflow is implemented yet |
 | Weather | Open-Meteo geocoding and forecast through Next.js Route Handlers; protected farmer dashboard |
 | Maps | Leaflet and OpenStreetMap tiles (Harvest & Storage map; verified points only) |
 | Forms | React Hook Form, Zod |
@@ -30,7 +31,7 @@ Do not replace working dependencies for this scope. Leaflet has been added for t
 ### Implemented integration status
 
 - Firebase client initialization, AuthContext, Firestore services, and local Firestore/Storage rules and indexes exist.
-- Open-Meteo geocoding and forecast Route Handlers are implemented. Gemini disease analysis/chat Route Handlers remain planned.
+- Open-Meteo geocoding and forecast Route Handlers are implemented. The farmer AI Crop Doctor frontend, separate FastAPI source, and owner-scoped Firestore/Storage rules are implemented; the Python service and Firebase changes still require deployment and runtime verification. Gemini chat remains planned.
 - Firestore rules and indexes are not automatically published by the application. The local manifest must be deployed and verified separately.
 
 ## 3. System boundaries
@@ -41,7 +42,12 @@ Mobile/desktop browser
   ├─ Firebase client SDK: Auth, Firestore and Storage under user rules
   └─ Next.js Route Handlers
        ├─ Open-Meteo: geocoding and weather forecasts (implemented; no API key)
-       └─ Gemini API: image analysis and agricultural chat (planned; server-only key)
+       └─ Gemini API: agricultural chat (planned; server-only key)
+
+Separate Python crop-inference service
+  ├─ Firebase Admin SDK: verify farmer ID token and active role
+  ├─ TensorFlow + TensorFlow Hub: load H5 models once and infer
+  └─ Mounted model files; no Firebase credentials or model weights in the browser
 
 Firebase
   ├─ Authentication: identity
@@ -62,6 +68,7 @@ Bundled public datasets
 - **Open-Meteo:** `/api/weather/geocode` validates location queries, requests India-only results, filters out any result without the India country code, and caches responses; `/api/weather/forecast` validates coordinates and returns current conditions plus a seven-day forecast. Upstream requests have timeouts and 24-hour geocoding/15-minute forecast revalidation. The protected `/farmer/weather` dashboard uses a farm's saved coordinates when available and otherwise lets the farmer search and select a location. A search selection is view-only and is not written to Firestore. Show explicit unavailable/error states and general, non-crop-specific advisories; do not treat them as official warnings or guaranteed recommendations.
 - **Leaflet/OpenStreetMap:** load interactive mapping only in a client component when needed; request explicit location permission; do not expose exact farm coordinates publicly by default; include map attribution.
 - **Firebase:** client operations go through feature service modules. Server routes must independently verify Firebase identity/authorization if they access private data or invoke paid/abuse-prone AI services.
+- **Crop inference:** the browser sends a Firebase ID token, selected crop, and image to the separate FastAPI service. The service requires an active farmer profile, validates image type/size, selects a model only from the centralized crop mapping, and refuses a loaded model whose input/output shapes do not match that mapping. Model files are mounted outside the image and Git. Firebase client SDK saves reports/images under UID-scoped Firestore and Storage rules. Softmax scores and fixed-class outputs remain unverified suggestions; the models have no validated out-of-domain detector.
 - **Market/Storage Finder:** read the source CSVs from `public/data/` through a shared CSV parser and typed feature mappers. These files are public and read-only; do not model them as Firebase collections or fabricate absent fields. The market source supports state/district/group/variety filters; the storage source supports district only because it contains no state field. The Harvest & Storage cold-storage tab combines those district-only source rows with separate Goa leads and any live admin-reviewed `storageFacilities`.
 - **Harvest & Storage Services:** reuse `jobs`/`jobApplications` for work requests and applications, and `serviceListings` for worker-owned harvesting/machinery offers. Use `storageFacilities` and `storageEnquiries` for moderated facility records and enquiries. Public discovery exposes only approved active providers, while active pending facility leads are shown explicitly as unverified. Government market-yard names and Board-level amenity information are sourced from the Goa Economic Survey 2025–26; the report does not assign every amenity to each yard. July 2026 hire rates were not verified and are not published as government rates. Map markers are rendered only for admin-verified coordinates.
 - Harvest-request photographs use the private `harvestRequests/{farmerUid}/{jobId}/{fileName}` Storage path. Storage rules check role, request ownership/state, image MIME type and the 5 MB limit; workers may read only public request images or images for requests assigned to them.
@@ -82,6 +89,7 @@ src/
   models/                  # Firestore domain types
   services/                # Firebase/external data access
   lib/firebase/            # existing Firebase client initialization
+services/crop-inference/   # separately deployed FastAPI/TensorFlow service
 ```
 
 Use the existing AuthContext/role layouts for user experience. They do not replace Firestore/Storage security rules. Next.js 16 calls the pre-request convention `proxy`; do not rely on proxy for full session management or authorization.
@@ -101,7 +109,8 @@ Use the existing AuthContext/role layouts for user experience. They do not repla
 ## 6. AI safety and privacy
 
 - Treat uploaded images and prompts as untrusted input. Limit payload/image size and permitted MIME types, enforce authenticated use, and set abuse/rate controls before launch.
-- Gemini disease outputs are possibilities, not diagnoses. Responses include uncertainty, visible evidence, safe prevention/treatment guidance, and expert verification.
+- Crop-model outputs are possibilities, not diagnoses. Low-score/margin and low-resolution flags are uncalibrated triage heuristics. A high score cannot establish crop identity or exclude diseases outside the fixed labels; require expert verification.
+- Disease-specific visual explanations and treatment recommendations must be added only with reliable local agricultural references. The current UI does not infer/localize symptoms or prescribe chemicals.
 - Do not request or return unsupported chemical names/dosages. Do not guarantee outcomes.
 - Avoid sending unnecessary personal identifiers or precise farm location to AI providers. Explain retention and external processing before enabling the feature.
 - Record only the minimum AI analysis data required for user history and service reliability; define retention/deletion policy before production.
@@ -116,6 +125,7 @@ Use the existing AuthContext/role layouts for user experience. They do not repla
 ## 8. Deployment and environment
 
 - Firebase client config values use the existing `NEXT_PUBLIC_FIREBASE_*` variables.
+- `NEXT_PUBLIC_CROP_DOCTOR_API_URL` is a public service URL, not a secret. The inference service uses server-only Application Default Credentials and `FIREBASE_PROJECT_ID`; never add service-account credentials to the repository or container image.
 - `GEMINI_API_KEY` is a server-only secret and must never have a `NEXT_PUBLIC_` prefix.
 - Open-Meteo requires no key. Configure rate/usage limits as service policies evolve.
 - Keep local, preview, and production Firebase configuration separated. Never commit `.env.local`.

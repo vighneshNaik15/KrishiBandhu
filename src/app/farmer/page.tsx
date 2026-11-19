@@ -12,15 +12,18 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ROUTES } from '@/lib/constants';
 import { formatDate, formatPrice } from '@/utils/formatters';
+import { cropDiseaseService } from '@/services/cropDiseaseService';
 import type { Farm } from '@/models/farm';
 import type { Product } from '@/models/product';
 import type { Order } from '@/models/order';
+import type { CropDiseaseAssessment } from '@/models/cropDiseaseAssessment';
 
 export default function FarmerDashboardPage() {
   const { userProfile } = useAuth();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [recentAssessments, setRecentAssessments] = useState<CropDiseaseAssessment[]>([]);
   const [loading, setLoading] = useState(true);
 
   // We use the farmer's UID as farmerId for now (profile to be created separately)
@@ -39,6 +42,11 @@ export default function FarmerDashboardPage() {
         setFarms(farmsData);
         setProducts(productsData);
         setOrders(ordersData);
+        try {
+          setRecentAssessments(await cropDiseaseService.getByFarmer(farmerId));
+        } catch (assessmentError) {
+          console.error('Disease assessment dashboard load error:', assessmentError);
+        }
       } catch (err) {
         console.error('Dashboard load error:', err);
       } finally {
@@ -106,6 +114,8 @@ export default function FarmerDashboardPage() {
               { label: 'List a Product', href: ROUTES.FARMER_PRODUCTS_NEW, icon: Package },
               { label: 'Farm Weather', href: ROUTES.FARMER_WEATHER, icon: CloudSun },
               { label: 'Get AI Advisory', href: ROUTES.FARMER_ADVISORY, icon: BrainCircuit },
+              { label: 'AI Crop Doctor', href: ROUTES.FARMER_CROP_DOCTOR, icon: BrainCircuit },
+              { label: 'Disease Assessments', href: ROUTES.FARMER_CROP_DOCTOR_HISTORY, icon: BrainCircuit },
             ].map((action) => {
               const Icon = action.icon;
               return (
@@ -165,6 +175,46 @@ export default function FarmerDashboardPage() {
           )}
         </Card>
       </div>
+
+      <Card>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-neutral-800">Recent disease assessments</h2>
+            <p className="mt-1 text-xs text-neutral-500">Model suggestions only; not confirmed diagnoses.</p>
+          </div>
+          <Link
+            href={ROUTES.FARMER_CROP_DOCTOR_HISTORY}
+            className="text-xs font-medium text-primary-700 hover:text-primary-800"
+          >
+            View history
+          </Link>
+        </div>
+        {recentAssessments.length === 0 ? (
+          <p className="text-sm text-neutral-500">No saved assessments yet.</p>
+        ) : (
+          <div className="divide-y divide-neutral-100">
+            {recentAssessments.slice(0, 3).map((assessment) => (
+              <div key={assessment.assessmentId} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-neutral-800">
+                    {assessment.selectedCrop} · {assessment.predictedDisease}
+                  </p>
+                  <p className="text-xs text-neutral-500">{formatDate(assessment.assessedAt)}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                  {assessment.status === 'uncertain' ? 'Inconclusive' : 'Unverified'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <Link
+          href={ROUTES.FARMER_CROP_DOCTOR}
+          className="mt-4 inline-flex text-sm font-semibold text-primary-700 hover:text-primary-800"
+        >
+          Start a new assessment
+        </Link>
+      </Card>
 
       {/* My Farms */}
       <Card>

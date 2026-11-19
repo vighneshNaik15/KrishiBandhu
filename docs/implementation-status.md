@@ -12,6 +12,7 @@
 - Shared responsive UI components and form validation patterns using React Hook Form and Zod.
 - Market Finder and Storage Finder pages using the unchanged source CSVs, public navigation links, farmer dashboard actions, and typed filters.
 - A protected farmer weather dashboard with Open-Meteo location search, current conditions, seven-day forecasts, rainfall, and general weather-aware planning notes.
+- AI Crop Doctor farmer pages, separate FastAPI source for the four supplied H5 models, and owner-scoped Firestore/Storage rules/indexes are implemented in source. The inference service has not been run with TensorFlow or deployed Firebase credentials.
 
 ## What is partial or missing
 
@@ -24,7 +25,7 @@
 | Products | Creation and public listing/query exist; image upload and product edit/archive UI are incomplete. |
 | Buyer orders | An order model/service and buyer dashboard exist, but no checkout caller or buyer order-history route exists. Local rules intentionally deny order creation pending a trusted stock-reservation flow. |
 | Market/Storage Finder | Integrated with the original CSV data. Market search supports state, district, group, and variety; storage supports district only because no state field exists. Optional source omissions remain unfilled. |
-| AI disease and chat | Not implemented. `@google/genai` is present, but no Gemini route, image analysis, or agricultural chatbot is connected. |
+| AI Crop Doctor | Frontend, class-mapped FastAPI service, Firebase report/image persistence, owner rules, history, dashboard summary, and model-independent preprocessing/score tests are present in source. Actual TensorFlow model loading/inference, Firebase saving/history, and deployment remain unverified. The fixed-class models have no validated out-of-domain detector; Krishi Mitra chat and expert-request workflows are not implemented. |
 | Farmer weather | Implemented with Open-Meteo geocoding/forecast Route Handlers and a farmer dashboard. Saved farm coordinates are used when present; otherwise location search is available. Search selections are view-only. Firebase-backed coordinate capture is not present in the farm form. |
 | Services, schemes | No integrated listings/booking or scheme discovery workflows found. |
 | Notifications, reviews, transactions, admin moderation/reports | Models/constants or dashboard shells may exist, but end-to-end functionality and access rules are not in place. |
@@ -34,7 +35,7 @@
 ## Immediate sequence
 
 1. Complete farm/crop edit and history workflows and validate ownership.
-2. Deliver safe server-side Gemini image analysis and crop-health workflow.
+2. Install the pinned Python runtime, load/test each trained model, and verify the Firebase rules and report/history workflow before enabling the AI Crop Doctor.
 3. Complete worker profiles and labour lifecycle.
 4. Complete product media and a stock-safe buyer order flow.
 5. Deploy and verify Firebase rules/indexes and end-to-end workflows.

@@ -234,6 +234,14 @@
         { "fieldPath": "isActive", "order": "ASCENDING" },
         { "fieldPath": "verificationStatus", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "cropDiseaseAnalyses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "farmerUid", "order": "ASCENDING" },
+        { "fieldPath": "assessedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -744,6 +744,68 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /cropDiseaseAnalyses/{assessmentId} {
+      allow get, list: if isFarmer()
+        && resource.data.farmerUid == request.auth.uid;
+      allow create: if isFarmer()
+        && request.resource.data.keys().hasAll([
+          'assessmentId', 'farmerUid', 'selectedCrop', 'predictedDisease',
+          'modelId', 'modelVersion', 'modelScore', 'alternativeScores',
+          'imageStoragePath', 'assessedAt', 'status'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'assessmentId', 'farmerUid', 'selectedCrop', 'predictedDisease',
+          'modelId', 'modelVersion', 'modelScore', 'alternativeScores',
+          'imageStoragePath', 'assessedAt', 'status'
+        ])
+        && request.resource.data.assessmentId == assessmentId
+        && request.resource.data.farmerUid == request.auth.uid
+        && request.resource.data.selectedCrop in [
+          'rice', 'cotton', 'maize', 'sugarcane'
+        ]
+        && request.resource.data.predictedDisease is string
+        && (
+          (request.resource.data.selectedCrop == 'rice'
+            && request.resource.data.modelId == 'rice-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['Bacterialblight', 'Blast', 'Brownspot', 'Tungro'])
+          || (request.resource.data.selectedCrop == 'cotton'
+            && request.resource.data.modelId == 'cotton-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['bacterial_blight', 'curl_virus', 'fussarium_wilt', 'healthy'])
+          || (request.resource.data.selectedCrop == 'maize'
+            && request.resource.data.modelId == 'maize-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['Blight', 'Common_Rust', 'Gray_Leaf_Spot', 'Healthy'])
+          || (request.resource.data.selectedCrop == 'sugarcane'
+            && request.resource.data.modelId == 'sugarcane-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['Bacterial Blight', 'Healthy', 'Red Rot'])
+        )
+        && request.resource.data.modelVersion is string
+        && request.resource.data.modelVersion.size() == 64
+        && request.resource.data.modelScore is number
+        && request.resource.data.modelScore >= 0
+        && request.resource.data.modelScore <= 1
+        && request.resource.data.alternativeScores is list
+        && request.resource.data.alternativeScores.size() <= 3
+        && request.resource.data.imageStoragePath is string
+        && (
+          request.resource.data.imageStoragePath
+            == 'cropDiseaseReports/' + request.auth.uid + '/'
+              + assessmentId + '/image.jpg'
+          || request.resource.data.imageStoragePath
+            == 'cropDiseaseReports/' + request.auth.uid + '/'
+              + assessmentId + '/image.png'
+          || request.resource.data.imageStoragePath
+            == 'cropDiseaseReports/' + request.auth.uid + '/'
+              + assessmentId + '/image.webp'
+        )
+        && request.resource.data.assessedAt == request.time
+        && request.resource.data.status in ['uncertain', 'unverified'];
+      allow update, delete: if false;
+    }
+
     // Unused collections, including transactions, remain denied by default.
     match /{document=**} {
       allow read, write: if false;

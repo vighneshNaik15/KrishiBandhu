@@ -55,6 +55,24 @@ service firebase.storage {
         && validHarvestJob(jobId, farmerId);
     }
 
+    match /cropDiseaseReports/{farmerId}/{assessmentId}/{fileName} {
+      allow create: if isRole('farmer')
+        && request.auth.uid == farmerId
+        && validImageUpload()
+        && (
+          (fileName == 'image.jpg'
+            && request.resource.contentType == 'image/jpeg')
+          || (fileName == 'image.png'
+            && request.resource.contentType == 'image/png')
+          || (fileName == 'image.webp'
+            && request.resource.contentType == 'image/webp')
+        );
+
+      allow read, delete: if isRole('farmer')
+        && request.auth.uid == farmerId;
+      allow update: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -23,6 +23,8 @@ const NAV_ITEMS: Record<UserRole, { label: string; href: string; icon?: string }
     { label: 'Products', href: ROUTES.FARMER_PRODUCTS },
     { label: 'Orders', href: ROUTES.FARMER_ORDERS },
     { label: 'AI Advisory', href: ROUTES.FARMER_ADVISORY },
+    { label: 'AI Crop Doctor', href: ROUTES.FARMER_CROP_DOCTOR },
+    { label: 'Disease History', href: ROUTES.FARMER_CROP_DOCTOR_HISTORY },
     { label: 'Weather', href: ROUTES.FARMER_WEATHER },
     { label: 'Schemes', href: ROUTES.FARMER_SCHEMES },
   ],

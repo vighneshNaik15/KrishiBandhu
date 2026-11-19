@@ -5,7 +5,7 @@ KrishiBandhu is an integrated, AI-powered agriculture management platform connec
 ## Platform modules
 
 - **Farmer and farm management** — farmer profiles, farm locations and soil details, crop records, cultivation stages, and sowing/harvest history.
-- **AI crop disease detection** — Gemini image analysis with possible diseases, visible symptoms, uncertainty, prevention, and safe treatment guidance. Results are informational and require expert verification; the system must not invent chemical dosages or claim a certain diagnosis.
+- **AI crop disease detection** — the farmer-only AI Crop Doctor sends rice, cotton, maize, or sugarcane images to the separate trained-model inference service. Results are unverified model suggestions, not diagnoses or calibrated probabilities, and require expert verification.
 - **Labour management** — worker profiles and skills, job posts, applications, selection, scheduling, completion confirmation, ratings, and reviews.
 - **Farm services** — discover and enquire about tractor/equipment rental, harvesting, spraying, pruning, irrigation, and land preparation.
 - **AI and weather advisory** — Open-Meteo current/forecast information, crop-aware seasonal and irrigation guidance, and a Gemini agricultural chatbot.
@@ -27,11 +27,11 @@ KrishiBandhu is an integrated, AI-powered agriculture management platform connec
 
 ## Technology
 
-Next.js 16 (App Router), React, TypeScript, Tailwind CSS, Firebase Authentication, Cloud Firestore, Firebase Storage, the existing Google Gen AI SDK (`@google/genai`), Open-Meteo, Leaflet, and OpenStreetMap. Existing dependencies and routes are retained; modules are delivered incrementally.
+Next.js 16 (App Router), React, TypeScript, Tailwind CSS, Firebase Authentication, Cloud Firestore, Firebase Storage, a separate Python FastAPI/TensorFlow crop-inference service, the existing Google Gen AI SDK (`@google/genai`), Open-Meteo, Leaflet, and OpenStreetMap. Existing frontend dependency versions and routes are retained; modules are delivered incrementally.
 
 ## Current implementation status
 
-This repository is an in-progress foundation, not a production-complete implementation of every module above. Farmer registration and farm/crop records, labour listings/applications, product listings, the Goa Harvest & Storage slice, and a farmer weather dashboard have connected code. The weather dashboard uses India-only Open-Meteo geocoding and current/seven-day forecast data, preferring saved farm coordinates when present and otherwise letting the farmer choose a searched location. Its weather-aware planning notes are general information, not crop-specific advice. Gemini disease analysis and chat, scheme discovery, worker profile persistence, general service bookings, and complete buyer checkout are not yet implemented. In particular, Firestore rules currently deny order creation until a stock-safe flow is added. Local rules and indexes must be published separately; they have not been deployed automatically.
+This repository is an in-progress foundation, not a production-complete implementation of every module above. Farmer registration and farm/crop records, labour listings/applications, product listings, the Goa Harvest & Storage slice, a farmer weather dashboard, and the AI Crop Doctor source workflow have connected code. The weather dashboard uses India-only Open-Meteo geocoding and current/seven-day forecast data, preferring saved farm coordinates when present and otherwise letting the farmer choose a searched location. Its weather-aware planning notes are general information, not crop-specific advice. The separate crop service, Firebase rules/indexes, and real-user workflows still require setup and deployment; no model inference or Firebase persistence is claimed as tested until those steps pass. Krishi Mitra chat, expert-request workflow, disease-specific reference-backed guidance, scheme discovery, worker profile persistence, general service bookings, and complete buyer checkout are not implemented. In particular, Firestore rules currently deny order creation until a stock-safe flow is added. Local rules and indexes must be published separately; they have not been deployed automatically.
 
 The current source audit, validation results, and remaining gaps are recorded in [the audit report](docs/audit-report.md) and [implementation roadmap](docs/implementation-roadmap.md).
 
@@ -68,7 +68,7 @@ copy .env.example .env.local
 npm run dev
 ```
 
-The Gemini key must remain server-side and must not use a `NEXT_PUBLIC_` prefix. Open-Meteo does not require an API key. Configure and deploy Firebase rules/indexes before using real accounts or data. See [architecture](docs/architecture.md) and [database schema](docs/database-schema.md).
+The Gemini key must remain server-side and must not use a `NEXT_PUBLIC_` prefix. Open-Meteo does not require an API key. The crop inference service is separate; its setup, model files, pinned Python runtime, and limits are documented in [the service guide](services/crop-inference/README.md). Configure and deploy Firebase rules/indexes before using real accounts or data. See [architecture](docs/architecture.md) and [database schema](docs/database-schema.md).
 
 ## Project documentation
 
@@ -83,7 +83,7 @@ The Gemini key must remain server-side and must not use a `NEXT_PUBLIC_` prefix.
 
 ## Delivery approach
 
-Work is phase-gated: complete and verify each vertical workflow before expanding scope. The first demonstration prioritizes farmer onboarding and farm/crop records, safe AI disease analysis, labour posting and applications, then product listings and buyer orders. The Open-Meteo farmer weather dashboard is implemented; Gemini chat, service bookings, schemes, and operational analytics remain future work. The current repository audit and phase gates are in [the roadmap](docs/implementation-roadmap.md).
+Work is phase-gated: complete and verify each vertical workflow before expanding scope. The Open-Meteo farmer weather dashboard and AI Crop Doctor source workflow are present; validate the separate model runtime and publish Firebase rules/indexes before enabling production use. Krishi Mitra chat, expert requests, service bookings, schemes, and operational analytics remain future work. The current repository audit and phase gates are in [the roadmap](docs/implementation-roadmap.md).
 
 ## Project identity
 

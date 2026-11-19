@@ -27,7 +27,7 @@ The repository already contains an App Router application, responsive shared UI,
 - Job/application UI and services exist, but service methods permit arbitrary status changes and do not enforce ownership, duplicate applications, open-job eligibility, or safe status transitions. Worker profile persistence/display is absent.
 - Product creation and marketplace queries exist, but image upload/edit/delete and robust stock management are incomplete. Search/filter capabilities in the service are narrower than the product scope.
 - Orders have a basic service and pages, but there is no verified end-to-end order flow, no atomic stock reservation, no complete buyer order-history/detail workflow, and status updates need participant/state checks.
-- Gemini disease analysis/chat, scheme discovery, notifications, reviews, transaction handling, and broader admin analytics are absent or not integrated. Open-Meteo weather is now integrated in the farmer dashboard. Firestore/Storage rules and indexes are local files only and have not been deployed; no emulator security tests are configured.
+- The AI Crop Doctor frontend, separate FastAPI service source, and Firebase report rules are now present; actual TensorFlow model loads, Firebase save/history, and live deployment remain unverified. Krishi Mitra chat, expert-request workflow, scheme discovery, notifications, reviews, transaction handling, and broader admin analytics are absent or not integrated. Open-Meteo weather is integrated in the farmer dashboard. Firestore/Storage rules and indexes are local files only and have not been deployed; no emulator security tests are configured.
 - Firebase environment configuration is deployment/user setup; no credentials should be fabricated or committed. The initial lint errors in farmer form resolvers and farm-list loading have been fixed; lint now exits successfully with non-blocking warnings.
 - No automated test runner/test suite is configured or present. Build/lint and targeted workflow tests need to become phase gates.
 - Market/storage finder source data is bundled as public CSV assets; the storage source omits state and most contact numbers, so those values are not inferred.
@@ -70,16 +70,18 @@ The prior status documents described an empty/default Next.js scaffold and confl
 
 ## Phase 2 — AI crop disease detection
 
-**Goal:** Deliver safe, authenticated, traceable image analysis.
+**Goal:** Deliver a safe, authenticated, traceable workflow using the four supplied trained crop models.
 
-- Add private Firebase Storage upload/validation and optional farm/crop association.
-- Add an authenticated Next.js Route Handler using existing `@google/genai`; keep key server-only.
-- Validate/normalize Gemini structured output and present possible disease, symptoms, uncertainty, prevention, and safe treatment guidance.
-- Show the informational/expert verification notice; do not invent chemical dosages or claim certainty.
-- Persist user-scoped analysis metadata and define deletion/retention behavior.
-- Cover malformed output, inconclusive images, invalid files, provider errors, and rate limits.
+- [x] Inspect H5 architecture, output dimensions, TensorFlow Hub layer metadata, training preprocessing, class order, and report-only validation metrics.
+- [x] Add an authenticated FastAPI source service with centralized crop/model/class configuration and model shape checks.
+- [x] Add the farmer upload/camera/result/history UI, Firebase Storage/Firestore persistence, and UID-scoped local rules/index.
+- [x] Add model-independent image preprocessing and score uncertainty tests.
+- [ ] Run with the pinned Python 3.11 / TensorFlow 2.15 / TensorFlow Hub 0.16 runtime and verify all four real H5 loads and predictions, including provided rice photos.
+- [ ] Verify unknown/unrelated/low-quality image behavior with a representative held-out dataset; current softmax/margin heuristics are not calibrated and do not provide out-of-domain detection.
+- [ ] Publish and test Firebase rules/indexes in the intended Firebase project or Emulator; verify save/history with farmer accounts.
+- [ ] Add reliable local agricultural references and build Krishi Mitra/expert/notification workflows when those modules exist.
 
-**Acceptance gate:** Real image upload → protected Gemini request → validated result or useful error; unauthorized use and invalid files are rejected.
+**Acceptance gate:** All four real models load with verified output shapes and class order; actual authenticated predictions and Firebase save/history pass in the pinned runtime; unsupported and ambiguous inputs produce explicit uncertainty; deployments are confirmed. Source-level code alone is not completion.
 
 ## Phase 3 — Worker profiles and labour workflow
 

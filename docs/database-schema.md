@@ -22,7 +22,7 @@
 | `buyerProfiles` | Auth UID | Planned buyer preferences/contact details; not currently used or allowed by rules |
 | `farms` | Generated ID | Farm location, area, soil and irrigation; owner farmer/admin |
 | `crops` | Generated ID | Crop/cultivation/season records; owner farmer/admin |
-| `cropDiseaseAnalyses` | Generated ID | User-owned image reference and validated AI analysis; owner/admin under retention policy |
+| `cropDiseaseAnalyses` | Generated ID | Farmer-owned trained-model suggestion, score breakdown, image path and assessment status; owner only |
 | `jobs` | Generated ID | Farmer job posts and lifecycle; public published subset, owner/admin |
 | `jobApplications` | Generated ID | Worker application and farmer/job references; worker, owning farmer, admin |
 | `serviceListings` | Generated ID | Worker-owned harvesting/machinery and farm-service offers; public approved active subset, owner/admin |
@@ -43,7 +43,7 @@
 
 `farmers` is a legacy collection name retained in constants for compatibility. New farmer profiles use `farmerProfiles/{uid}`; do not silently change existing data reads without a migration plan.
 
-This is the logical model, not a claim that every collection is active. Current application code uses `users`, `farmerProfiles`, `farms`, `crops`, `jobs`, `jobApplications`, `serviceListings`, `storageFacilities`, `storageEnquiries`, `products`, and `orders`. The local Firestore rules explicitly match those collections and deny unknown paths by default. `workerProfiles`, `buyerProfiles`, and the other future collections remain inactive unless separately implemented. Harvesting requests/applications reuse `jobs` and `jobApplications`; machinery offers reuse `serviceListings`. Local Firestore/Storage rules and indexes are not deployed.
+This is the logical model, not a claim that every collection is active. Current application code uses `users`, `farmerProfiles`, `farms`, `crops`, `jobs`, `jobApplications`, `serviceListings`, `storageFacilities`, `storageEnquiries`, `products`, `orders`, and `cropDiseaseAnalyses`. The local Firestore rules explicitly match those collections and deny unknown paths by default. `workerProfiles`, `buyerProfiles`, and the other future collections remain inactive unless separately implemented. Harvesting requests/applications reuse `jobs` and `jobApplications`; machinery offers reuse `serviceListings`. Local Firestore/Storage rules and indexes are not deployed.
 
 ## 3. Bundled finder datasets (not Firestore)
 
@@ -149,27 +149,21 @@ Preserve completed crop-season history. Crop disease findings are separate analy
 
 ```ts
 {
-  analysisId: string;
-  farmerUserId: string;
-  farmId?: string;
-  cropId?: string;
-  imageStoragePath: string;
-  imageMimeType: string;
-  possibleDiseases: Array<{
-    name: string;
-    confidence?: number;      // optional calibrated/model-reported value; not certainty
-    visibleSymptoms: string[];
-  }>;
-  uncertainty: string;
-  prevention: string[];
-  safeTreatmentGuidance: string[];
-  expertVerificationRequired: true;
+  assessmentId: string;
+  farmerUid: string;
+  selectedCrop: 'rice' | 'cotton' | 'maize' | 'sugarcane';
+  predictedDisease: string;        // model class label, not a confirmed diagnosis
   modelId: string;
-  createdAt: Timestamp;
+  modelVersion: string;            // SHA-256 digest of mounted model file
+  modelScore: number;               // softmax model score; not a calibrated probability
+  alternativeScores: Array<{ class_name: string; score: number }>;
+  imageStoragePath: string;
+  assessedAt: Timestamp;
+  status: 'uncertain' | 'unverified';
 }
 ```
 
-Only validated structured output is persisted. Keep image access owner-scoped; define deletion/retention behavior before production.
+Images are stored under `cropDiseaseReports/{farmerUid}/{assessmentId}/` in Firebase Storage. Firestore and Storage reads are restricted to the active owning farmer; client updates/deletes are denied. Scores and fixed-class outputs are not calibrated diagnoses. Define the production retention/deletion policy before launch. The inference and setup details are in [the crop inference service guide](../services/crop-inference/README.md).
 
 ### `jobs/{jobId}` and `jobApplications/{applicationId}`
 
