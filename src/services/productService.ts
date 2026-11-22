@@ -3,7 +3,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
+  setDoc,
+  getDocFromServer,
   updateDoc,
   query,
   where,
@@ -11,8 +12,8 @@ import {
   limit,
   startAfter,
   serverTimestamp,
-  QueryDocumentSnapshot,
-  DocumentData,
+  type QueryDocumentSnapshot,
+  type DocumentData,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS, PRODUCTS_PER_PAGE } from '@/lib/constants';
@@ -83,13 +84,21 @@ export const productService = {
     return { products, lastDoc, hasMore: snap.docs.length > PRODUCTS_PER_PAGE };
   },
 
-  async create(data: CreateProductData): Promise<string> {
-    const ref = await addDoc(collection(db, COLLECTIONS.PRODUCTS), {
-      ...data,
-      status: 'active' as ProductStatus,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+  async create(data: CreateProductData, productId?: string): Promise<string> {
+    const products = collection(db, COLLECTIONS.PRODUCTS);
+    const ref = productId ? doc(products, productId) : doc(products);
+    try {
+      await setDoc(ref, {
+        ...data,
+        status: 'active' as ProductStatus,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      if (!productId) throw error;
+      const existing = (await getDocFromServer(ref).catch(() => null))?.data();
+      if (existing?.farmerId !== data.farmerId || existing?.farmerUserId !== data.farmerUserId) throw error;
+    }
     return ref.id;
   },
 

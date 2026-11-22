@@ -19,7 +19,7 @@
 | Styling/UI | Tailwind CSS v4, existing shared UI components, lucide-react |
 | Authentication | Firebase Authentication |
 | Primary data | Cloud Firestore |
-| Image storage | Firebase Storage |
+| Historical photo reads | Firebase Storage, when available |
 | Crop disease inference | Separate FastAPI service; TensorFlow 2.15 / TensorFlow Hub 0.16; four private mounted H5 models |
 | Agricultural chat | Planned server-side use of installed `@google/genai`; no Gemini chat workflow is implemented yet |
 | Weather | Open-Meteo geocoding and forecast through Next.js Route Handlers; protected farmer dashboard |
@@ -71,7 +71,7 @@ Bundled public datasets
 - **Crop inference:** the browser sends a Firebase ID token, selected crop, and image to the separate FastAPI service. The service requires an active farmer profile, validates image type/size, selects a model only from the centralized crop mapping, and refuses a loaded model whose input/output shapes do not match that mapping. Model files are mounted outside the image and Git. Firebase client SDK saves reports/images under UID-scoped Firestore and Storage rules. Softmax scores and fixed-class outputs remain unverified suggestions; the models have no validated out-of-domain detector.
 - **Market/Storage Finder:** read the source CSVs from `public/data/` through a shared CSV parser and typed feature mappers. These files are public and read-only; do not model them as Firebase collections or fabricate absent fields. The market source supports state/district/group/variety filters; the storage source supports district only because it contains no state field. The Harvest & Storage cold-storage tab combines those district-only source rows with separate Goa leads and any live admin-reviewed `storageFacilities`.
 - **Harvest & Storage Services:** reuse `jobs`/`jobApplications` for work requests and applications, and `serviceListings` for worker-owned harvesting/machinery offers. Use `storageFacilities` and `storageEnquiries` for moderated facility records and enquiries. Public discovery exposes only approved active providers, while active pending facility leads are shown explicitly as unverified. Government market-yard names and Board-level amenity information are sourced from the Goa Economic Survey 2025–26; the report does not assign every amenity to each yard. July 2026 hire rates were not verified and are not published as government rates. Map markers are rendered only for admin-verified coordinates.
-- Harvest-request photographs use the private `harvestRequests/{farmerUid}/{jobId}/{fileName}` Storage path. Storage rules check role, request ownership/state, image MIME type and the 5 MB limit; workers may read only public request images or images for requests assigned to them.
+- Previously saved harvest-request photographs use the private `harvestRequests/{farmerUid}/{jobId}/{fileName}` Storage path. Storage rules check role, request ownership/state, image MIME type and the 5 MB limit; workers may read only public request images or images for requests assigned to them.
 
 ## 4. Application organization
 
@@ -134,3 +134,11 @@ Use the existing AuthContext/role layouts for user experience. They do not repla
 ## 9. Architecture evolution
 
 The first implementation can use the existing Firebase client SDK/services. Move operations to a trusted server/Cloud Function only when correctness, abuse controls, payment, or atomic multi-party workflows require it. Do not introduce a second database, state-management framework, or dependency replacement without a concrete requirement.
+
+
+## Photos and inference
+
+- Crop Doctor previews the selected photo locally and sends it to the existing authenticated Python inference service for analysis. The result remains on the current page, and saving new reports is disabled.
+- Marketplace listing creation and editing write only listing details to Firestore. New listings initialize the existing `images` field to an empty array. Historical image references are retained.
+- New harvest requests publish directly to Firestore with text instructions. New photo uploads are disabled.
+- Existing report metadata remains readable under the current owner-only rules. Legacy Firebase Storage photos use bounded, authenticated reads, and missing photos do not prevent reading report or request details. No historical data or assets are migrated or deleted.

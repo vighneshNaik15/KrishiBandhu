@@ -19,11 +19,11 @@ import { COLLECTIONS } from '@/lib/constants';
 
 interface AuthState {
   firebaseUser: FirebaseUser | null;
+  offlineFarmerUid?: string;
   userProfile: User | null;
   loading: boolean;
   error: string | null;
 }
-
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -61,17 +61,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Listen to Firebase Auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let usingOfflineProfile = false;
+    const resolveProfile = async (firebaseUser: FirebaseUser | null) => {
+      usingOfflineProfile = false;
       const revision = ++authStateRevision.current;
       if (!firebaseUser) {
         setState({ firebaseUser: null, userProfile: null, loading: false, error: null });
         return;
       }
 
+      setState(previous => previous.firebaseUser?.uid === firebaseUser.uid ? previous :
+        { firebaseUser, userProfile: null, loading: true, error: null });
+      const profileKey = `krishibandhu:farmer:${auth.app.options.projectId}:${firebaseUser.uid}`;
+      if (!navigator.onLine) {
+        let previousFarmer = false;
+        try { previousFarmer = localStorage.getItem(profileKey) === 'active'; } catch {}
+        if (previousFarmer) {
+          usingOfflineProfile = true;
+          setState({ firebaseUser, userProfile: null, offlineFarmerUid: firebaseUser.uid, loading: false, error: null });
+          return;
+        }
+      }
       try {
         const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid));
         if (revision !== authStateRevision.current) return;
         const userProfile = userDoc.exists() ? (userDoc.data() as User) : null;
+        try {
+          if (userProfile?.role === 'farmer' && userProfile.isActive) localStorage.setItem(profileKey, 'active');
+          else localStorage.removeItem(profileKey);
+        } catch {}
         setState({
           firebaseUser,
           userProfile,
@@ -90,9 +108,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: getProfileLoadErrorMessage(err),
         });
       }
-    });
-
-    return () => unsubscribe();
+    };
+    const unsubscribe = onAuthStateChanged(auth, resolveProfile);
+    const reconnect = () => {
+      if (usingOfflineProfile) void resolveProfile(auth.currentUser);
+    };
+    window.addEventListener('online', reconnect);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('online', reconnect);
+    };
   }, []);
 
   // ── Auth methods ─────────────────────────────────────────────────────────────
@@ -196,7 +221,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(message);
     }
   };
-
   const logout = async (): Promise<void> => {
     try {
       await signOut(auth);

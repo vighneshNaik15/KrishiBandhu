@@ -82,7 +82,7 @@ export const ROUTES = {
   MARKET_FINDER: '/market-finder',
   STORAGE_FINDER: '/storage-finder',
   HARVEST_SERVICES: '/harvest-services',
-  ABOUT: '/about',
+  ABOUT: '/#about',
 
   // Auth
   LOGIN: '/login',
@@ -109,6 +109,9 @@ export const ROUTES = {
   FARMER_ADVISORY: '/farmer/advisory',
   FARMER_CROP_DOCTOR: '/farmer/crop-doctor',
   FARMER_CROP_DOCTOR_HISTORY: '/farmer/crop-doctor/history',
+  FARMER_MARKET_FINDER: '/farmer/market-finder',
+  FARMER_STORAGE_FINDER: '/farmer/storage-finder',
+  FARMER_HARVEST_SERVICES: '/farmer/harvest-services',
   FARMER_WEATHER: '/farmer/weather',
   FARMER_SCHEMES: '/farmer/schemes',
 
@@ -117,11 +120,13 @@ export const ROUTES = {
   WORKER_PROFILE: '/worker/profile',
   WORKER_JOBS: '/worker/jobs',
   WORKER_APPLICATIONS: '/worker/applications',
+  WORKER_HARVEST_SERVICES: '/worker/harvest-services',
   WORKER_SERVICE_PROFILE: '/worker/services',
 
   // Buyer
   BUYER_DASHBOARD: '/buyer',
   BUYER_PROFILE: '/buyer/profile',
+  BUYER_MARKETPLACE: '/buyer/marketplace',
   BUYER_ORDERS: '/buyer/orders',
 
   // Admin

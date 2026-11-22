@@ -147,7 +147,7 @@ export default function NewCropPage() {
         </Card>
 
         <div className="flex gap-3">
-          <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
+          <Button type="button" variant="secondary" onClick={() => router.push(ROUTES.FARMER_CROPS)}>Cancel</Button>
           <Button type="submit" isLoading={isSubmitting} leftIcon={<Sprout className="w-4 h-4"/>}>Save Crop</Button>
         </div>
       </form>

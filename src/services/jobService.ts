@@ -1,6 +1,6 @@
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, runTransaction,
-  query, where, orderBy, limit, serverTimestamp, arrayUnion,
+  query, where, orderBy, limit, serverTimestamp, arrayUnion, Timestamp,
 } from 'firebase/firestore';
 import { auth } from '@/lib/firebase/config';
 import { db } from '@/lib/firebase/config';
@@ -41,7 +41,7 @@ export const jobService = {
     const ref = await addDoc(collection(db, COLLECTIONS.JOBS), {
       ...data,
       selectedWorkerIds: [],
-      statusHistory: [{ status: data.status, changedAt: serverTimestamp() }],
+      statusHistory: [{ status: data.status, changedAt: Timestamp.now() }],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });

@@ -1,14 +1,14 @@
 'use client';
 
+import { ProductPhoto } from '@/features/product-media/ProductPhoto';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Package, IndianRupee, Edit, Eye, EyeOff } from 'lucide-react';
+import { Plus, Package, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { productService } from '@/services/productService';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
 import { ProductStatusBadge } from '@/components/ui/Badge';
 import { ROUTES } from '@/lib/constants';
 import { PRODUCT_CATEGORIES } from '@/models/product';
@@ -71,9 +71,9 @@ export default function FarmerProductsPage() {
             <Card key={product.productId}>
               <div className="flex gap-4">
                 {/* Thumbnail */}
-                <div className="w-20 h-20 rounded-lg bg-primary-50 flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="relative w-20 h-20 rounded-lg bg-primary-50 flex items-center justify-center shrink-0 overflow-hidden">
                   {product.images?.[0] ? (
-                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover"/>
+                    <ProductPhoto src={product.images[0]} alt={product.name} />
                   ) : (
                     <Package className="w-8 h-8 text-primary-300"/>
                   )}
@@ -92,9 +92,7 @@ export default function FarmerProductsPage() {
                     <span className="text-xs text-neutral-400">{product.quantityAvailable} {product.unit} available</span>
                   </div>
                   <div className="flex gap-2 mt-3">
-                    <Link href={`${ROUTES.FARMER_PRODUCTS}/${product.productId}/edit`}>
-                      <Button size="sm" variant="secondary" leftIcon={<Edit className="w-3.5 h-3.5"/>}>Edit</Button>
-                    </Link>
+                    <Link className="text-sm font-medium text-primary-700 underline" href={`${ROUTES.FARMER_PRODUCTS}/${product.productId}/edit`}>Edit product</Link>
                     <Button
                       size="sm"
                       variant="ghost"

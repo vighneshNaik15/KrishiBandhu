@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { generateGeminiJson } from '../gemini';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ const SchemeSchema = z.object({
   name: z.string(),
   description: z.string(),
   eligibility: z.string(),
-  link: z.string(),
+  link: z.string().transform(link => /^https?:\/\//i.test(link) ? link : '#'),
 });
 
 const ResponseSchema = z.object({
@@ -24,15 +24,7 @@ export type Scheme = z.infer<typeof SchemeSchema>;
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { error: 'AI schemes search is not configured. Add GEMINI_API_KEY to your environment.' },
-      { status: 503 }
-    );
-  }
-
+export async function POST(req: Request) {
   let body: unknown;
   try {
     body = await req.json();
@@ -84,52 +76,5 @@ Respond ONLY with valid JSON in this exact shape:
   "message": "<friendly introductory message>"
 }`;
 
-  try {
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.4,
-            maxOutputTokens: 2048,
-          },
-        }),
-        signal: AbortSignal.timeout(30_000),
-      }
-    );
-
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text().catch(() => '');
-      console.error('Gemini API error:', geminiRes.status, errText);
-      return Response.json({ error: 'AI service temporarily unavailable.' }, { status: 502 });
-    }
-
-    const geminiData = (await geminiRes.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    if (!rawText) {
-      return Response.json({ error: 'No response from AI.' }, { status: 502 });
-    }
-
-    const aiParsed = ResponseSchema.safeParse(JSON.parse(rawText));
-    if (!aiParsed.success) {
-      console.error('Schemes schema mismatch:', aiParsed.error);
-      return Response.json({ error: 'Unexpected AI response format.' }, { status: 502 });
-    }
-
-    return Response.json(aiParsed.data);
-  } catch (error: unknown) {
-    const timedOut = error instanceof Error && error.name === 'TimeoutError';
-    console.error('Schemes route error:', error);
-    return Response.json(
-      { error: timedOut ? 'Request timed out. Please try again.' : 'Schemes search failed. Please try again.' },
-      { status: timedOut ? 504 : 502 }
-    );
-  }
+  return generateGeminiJson({ prompt, schema: ResponseSchema, temperature: 0.4 });
 }

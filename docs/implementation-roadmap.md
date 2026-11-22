@@ -74,7 +74,7 @@ The prior status documents described an empty/default Next.js scaffold and confl
 
 - [x] Inspect H5 architecture, output dimensions, TensorFlow Hub layer metadata, training preprocessing, class order, and report-only validation metrics.
 - [x] Add an authenticated FastAPI source service with centralized crop/model/class configuration and model shape checks.
-- [x] Add the farmer upload/camera/result/history UI, Firebase Storage/Firestore persistence, and UID-scoped local rules/index.
+- [x] Add the farmer upload/camera/result/history UI and UID-scoped local rules/index. Existing reports are read-only while new photo uploads are disabled.
 - [x] Add model-independent image preprocessing and score uncertainty tests.
 - [ ] Run with the pinned Python 3.11 / TensorFlow 2.15 / TensorFlow Hub 0.16 runtime and verify all four real H5 loads and predictions, including provided rice photos.
 - [ ] Verify unknown/unrelated/low-quality image behavior with a representative held-out dataset; current softmax/margin heuristics are not calibrated and do not provide out-of-domain detection.
@@ -100,7 +100,7 @@ The prior status documents described an empty/default Next.js scaffold and confl
 
 **Goal:** Complete the marketplace transaction workflow with reliable inventory.
 
-- Add validated Firebase Storage product images, edit/archive, status and stock controls.
+- Support editing listing details and managing status and stock. Persistent product photo uploads are deferred.
 - Complete buyer search/discovery and order confirmation/history/detail.
 - Implement atomic stock reservation and idempotent rejection/cancellation restoration.
 - Enforce role, owner, price snapshot, quantity, and legal order-state invariants.
@@ -112,7 +112,7 @@ The prior status documents described an empty/default Next.js scaffold and confl
 
 **Goal:** Deliver an honest, Goa-first directory and a real harvesting work-request lifecycle, without presenting unverified research as confirmed supply.
 
-**Current implementation status (not yet a completed phase):** The public `/harvest-services` route and navigation are wired; workers can submit provider listings for review; farmers can publish validated North/South Goa requests, attach up to three private images, and review applications; accepted applications are transactionally linked to worker selection, scheduling and farmer-confirmed completion. Storage enquiry submission, admin review/import UI, Firestore rules, Storage rules, and initial composite indexes have been added locally. The Government Market Yards tab uses the Goa Economic Survey 2025–26 for named yards and Board-level facilities; it does not claim per-yard amenities. An asserted July 2026 custom-hire rate was not confirmed from official sources and is intentionally not shown as a government rate. Rules/indexes are not deployed, and workflows still require emulator/build/manual Firebase validation.
+**Current implementation status (not yet a completed phase):** The public `/harvest-services` route and navigation are wired; workers can submit provider listings for review; farmers can publish validated North/South Goa requests, view historical request photos when available, and review applications; accepted applications are transactionally linked to worker selection, scheduling and farmer-confirmed completion. Storage enquiry submission, admin review/import UI, Firestore rules, Storage rules, and initial composite indexes have been added locally. The Government Market Yards tab uses the Goa Economic Survey 2025–26 for named yards and Board-level facilities; it does not claim per-yard amenities. An asserted July 2026 custom-hire rate was not confirmed from official sources and is intentionally not shown as a government rate. Rules/indexes are not deployed, and workflows still require emulator/build/manual Firebase validation.
 
 - Reuse `jobs` and `jobApplications` for harvest requests/applications instead of adding duplicate `harvestRequests`/`harvestApplications` collections; extend schemas and rules without weakening existing job access.
 - Reuse `serviceListings` for worker/provider harvesting and machinery offers. Workers publish their own service categories, area, skills/equipment, availability and indicative charges; no fabricated provider records.

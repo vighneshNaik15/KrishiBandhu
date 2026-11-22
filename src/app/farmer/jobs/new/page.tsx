@@ -161,7 +161,7 @@ export default function NewJobPage() {
         </div>
 
         <div className="flex gap-3">
-          <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
+          <Button type="button" variant="secondary" onClick={() => router.push(ROUTES.FARMER_JOBS)}>Cancel</Button>
           <Button type="submit" isLoading={isSubmitting} leftIcon={<Briefcase className="w-4 h-4"/>}>Post Job</Button>
         </div>
       </form>

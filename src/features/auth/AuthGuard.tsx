@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/features/auth/AuthContext';
 import type { UserRole } from '@/models/user';
 import { ROUTES } from '@/lib/constants';
@@ -29,8 +29,11 @@ interface AuthGuardProps {
  * - Shows a loading spinner while auth state is resolving.
  */
 export function AuthGuard({ children, requiredRole, redirectTo = ROUTES.LOGIN }: AuthGuardProps) {
-  const { firebaseUser, userProfile, loading } = useAuth();
+  const { firebaseUser, userProfile, offlineFarmerUid, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const offlineFarmAccess = Boolean(offlineFarmerUid && offlineFarmerUid === firebaseUser?.uid &&
+    requiredRole === 'farmer' && pathname === ROUTES.FARMER_FARMS);
 
   useEffect(() => {
     if (loading) return;
@@ -40,20 +43,20 @@ export function AuthGuard({ children, requiredRole, redirectTo = ROUTES.LOGIN }:
       return;
     }
 
-    if (requiredRole && userProfile?.role !== requiredRole) {
+    if (requiredRole && userProfile?.role !== requiredRole && !offlineFarmAccess) {
       const correctDashboard = userProfile
         ? ROLE_DASHBOARD[userProfile.role]
         : ROUTES.LOGIN;
       router.replace(correctDashboard);
     }
-  }, [loading, firebaseUser, userProfile, requiredRole, redirectTo, router]);
+  }, [loading, firebaseUser, userProfile, requiredRole, offlineFarmAccess, redirectTo, router]);
 
   if (loading) {
     return <AuthLoadingScreen />;
   }
 
   if (!firebaseUser) return null;
-  if (requiredRole && userProfile?.role !== requiredRole) return null;
+  if (requiredRole && userProfile?.role !== requiredRole && !offlineFarmAccess) return null;
 
   return <>{children}</>;
 }

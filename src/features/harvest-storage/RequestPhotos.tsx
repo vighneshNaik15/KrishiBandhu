@@ -2,9 +2,8 @@
 
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { getBlob, ref } from 'firebase/storage';
 import { Alert } from '@/components/ui/Alert';
-import { storage } from '@/lib/firebase/config';
+import { readLegacyPhoto } from '@/services/legacyPhotoService';
 
 export function RequestPhotos({ paths }: { paths: string[] }) {
   const [images, setImages] = useState<{ path: string; url: string }[]>([]);
@@ -12,19 +11,20 @@ export function RequestPhotos({ paths }: { paths: string[] }) {
 
   useEffect(() => {
     let active = true;
-    let urls: string[] = [];
+    const urls: string[] = [];
 
     if (paths.length === 0) return;
 
-    Promise.all(paths.map(async (path) => {
-      const blob = await getBlob(ref(storage, path));
-      return { path, url: URL.createObjectURL(blob) };
-    })).then((loaded) => {
-      urls = loaded.map((image) => image.url);
-      if (active) setImages(loaded);
-      else urls.forEach(URL.revokeObjectURL);
-    }).catch(() => {
-      if (active) setError(true);
+    void Promise.allSettled(paths.map(readLegacyPhoto)).then(results => {
+      if (!active) return;
+      const loaded = results.flatMap((result, index) => {
+        if (result.status === 'rejected') return [];
+        const url = URL.createObjectURL(result.value);
+        urls.push(url);
+        return [{ path: paths[index], url }];
+      });
+      setImages(loaded);
+      setError(loaded.length !== paths.length);
     });
 
     return () => {
@@ -38,7 +38,7 @@ export function RequestPhotos({ paths }: { paths: string[] }) {
   return (
     <section className="space-y-2">
       <h2 className="font-semibold text-neutral-800">Farm photographs</h2>
-      {error && <Alert variant="error">One or more request photographs could not be loaded.</Alert>}
+      {error && <Alert variant="warning">One or more saved photographs are unavailable. The request details are still shown.</Alert>}
       {images.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {images.map((image, index) => (

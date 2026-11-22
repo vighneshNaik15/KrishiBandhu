@@ -6,17 +6,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Timestamp } from 'firebase/firestore';
-import { deleteObject, ref, uploadBytes } from 'firebase/storage';
-import Link from 'next/link';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input, Select, Textarea } from '@/components/ui/Input';
 import { useAuth } from '@/features/auth/AuthContext';
-import { ACCEPTED_IMAGE_TYPES, KONKAN_DISTRICTS, MAX_IMAGE_SIZE_BYTES, ROUTES } from '@/lib/constants';
+import { KONKAN_DISTRICTS, ROUTES } from '@/lib/constants';
 import { JOB_CATEGORY_LABELS, PAYMENT_TYPE_LABELS, type JobCategory } from '@/models/job';
 import { jobService } from '@/services/jobService';
-import { storage } from '@/lib/firebase/config';
 
 const schema = z.object({
   category: z.string().min(1, 'Select a service.'),
@@ -49,16 +46,10 @@ function isJobCategory(value: string): value is JobCategory {
   return Object.prototype.hasOwnProperty.call(JOB_CATEGORY_LABELS, value);
 }
 
-function safeFileName(file: File): string {
-  return file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100);
-}
-
 export default function NewHarvestRequestPage() {
   const { userProfile } = useAuth();
   const router = useRouter();
-  const [images, setImages] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues, unknown, ValidFormValues>({
     resolver: zodResolver(schema),
@@ -71,25 +62,6 @@ export default function NewHarvestRequestPage() {
     },
   });
 
-  const handleImages = (files: FileList | null) => {
-    const selected = Array.from(files ?? []);
-    if (selected.length > 3) {
-      setError('You can attach up to 3 photographs.');
-      setImages([]);
-      return;
-    }
-    const invalid = selected.find((file) =>
-      !ACCEPTED_IMAGE_TYPES.includes(file.type) || file.size > MAX_IMAGE_SIZE_BYTES
-    );
-    if (invalid) {
-      setError('Use JPEG, PNG or WebP images no larger than 5 MB each.');
-      setImages([]);
-      return;
-    }
-    setError(null);
-    setImages(selected);
-  };
-
   const onSubmit = async (data: ValidFormValues) => {
     if (!userProfile) {
       setError('Your farmer profile is not ready. Refresh and try again.');
@@ -100,13 +72,9 @@ export default function NewHarvestRequestPage() {
       return;
     }
     setError(null);
-    setSavingDraftId(null);
-    let jobId: string | null = null;
-    const uploadedPaths: string[] = [];
-    let allImagesUploaded = false;
 
     try {
-      jobId = await jobService.create({
+      const jobId = await jobService.create({
         requestType: 'harvest_service',
         farmerId: userProfile.uid,
         farmerUserId: userProfile.uid,
@@ -130,41 +98,11 @@ export default function NewHarvestRequestPage() {
         startDate: Timestamp.fromDate(new Date(`${data.startDate}T00:00:00`)),
         paymentType: data.paymentType,
         ...(data.paymentAmount !== undefined ? { paymentAmount: data.paymentAmount } : {}),
-        status: 'draft',
+        status: 'published',
       });
-      setSavingDraftId(jobId);
-
-      for (const [index, image] of images.entries()) {
-        const imageRef = ref(storage, `harvestRequests/${userProfile.uid}/${jobId}/${index}-${safeFileName(image)}`);
-        await uploadBytes(imageRef, image, { contentType: image.type });
-        uploadedPaths.push(imageRef.fullPath);
-      }
-      allImagesUploaded = true;
-
-      if (uploadedPaths.length > 0) {
-        await jobService.update(jobId, { imagePaths: uploadedPaths });
-      }
-      await jobService.updateStatus(jobId, 'published');
       router.push(`${ROUTES.FARMER_JOBS}/${jobId}`);
     } catch {
-      if (uploadedPaths.length > 0 && !allImagesUploaded) {
-        const cleanup = await Promise.allSettled(
-          uploadedPaths.map((path) => deleteObject(ref(storage, path)))
-        );
-        if (cleanup.some((result) => result.status === 'rejected')) {
-          setError('The request could not be published, and some uploaded images could not be removed. The saved request is a draft; contact support if it should be deleted.');
-        } else if (jobId) {
-          setError('The request could not be published. Your draft was saved without its images; review it before publishing.');
-        } else {
-          setError('The request was not submitted. Please check your connection and try again.');
-        }
-      } else if (jobId && uploadedPaths.length > 0) {
-        setError('The request could not be published. Your draft and uploaded images may have been saved; open the draft to review it before publishing.');
-      } else if (jobId) {
-        setError('The request could not be published. Your draft was saved; review it before publishing.');
-      } else {
-        setError('The request was not submitted. Please check your connection and try again.');
-      }
+      setError('The request could not be published. Check your connection and try again.');
     }
   };
 
@@ -179,9 +117,6 @@ export default function NewHarvestRequestPage() {
       {error && (
         <Alert variant="error" onDismiss={() => setError(null)}>
           {error}
-          {savingDraftId && (
-            <> <Link className="font-semibold underline" href={`${ROUTES.FARMER_JOBS}/${savingDraftId}`}>Open saved draft</Link></>
-          )}
         </Alert>
       )}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -215,15 +150,7 @@ export default function NewHarvestRequestPage() {
             <Input label="Expected budget (₹, optional)" type="number" min={1} step="0.01" error={errors.paymentAmount?.message} {...register('paymentAmount')} />
             <Select label="Budget basis" required options={paymentOptions} error={errors.paymentType?.message} {...register('paymentType')} />
           </div>
-          <Input
-            label="Photographs (optional)"
-            type="file"
-            accept={ACCEPTED_IMAGE_TYPES.join(',')}
-            multiple
-            onChange={(event) => handleImages(event.target.files)}
-            hint="Up to 3 JPEG, PNG or WebP images; 5 MB maximum each."
-          />
-          {images.length > 0 && <p className="text-xs text-neutral-600">{images.length} photograph(s) ready to upload.</p>}
+          <p className="text-sm text-neutral-600">Photo attachments are disabled. Include the details workers need in the work instructions.</p>
         </Card>
 
         <p className="text-xs text-neutral-500">
@@ -231,7 +158,7 @@ export default function NewHarvestRequestPage() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Button type="submit" isLoading={isSubmitting}>Publish request</Button>
-          <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
+          <Button type="button" variant="secondary" onClick={() => router.push(ROUTES.FARMER_HARVEST_REQUESTS)}>Cancel</Button>
         </div>
       </form>
     </div>

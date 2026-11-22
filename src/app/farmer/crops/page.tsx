@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Sprout, Calendar, Ruler, Edit, Trash2 } from 'lucide-react';
+import { Plus, Sprout, Calendar, Ruler, Trash2 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { cropService } from '@/services/cropService';
 import { Card, EmptyState } from '@/components/ui/Card';
@@ -93,11 +93,6 @@ export default function FarmerCropsPage() {
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <Link href={`${ROUTES.FARMER_CROPS}/${crop.cropId}/edit`}>
-                    <button className="p-1.5 rounded-lg text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors" aria-label="Edit crop">
-                      <Edit className="w-4 h-4"/>
-                    </button>
-                  </Link>
                   <button
                     onClick={() => handleDelete(crop.cropId, crop.name)}
                     className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"

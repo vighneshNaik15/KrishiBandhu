@@ -78,7 +78,7 @@ export default function FarmerJobDetailPage() {
   };
 
   if (loading) return <div className="max-w-4xl mx-auto space-y-4">{[1,2].map(i=><div key={i} className="h-40 bg-neutral-100 rounded-xl animate-pulse"/>)}</div>;
-  if (error || !job) return <div className="max-w-4xl mx-auto"><Alert variant="error">{error ?? 'Job not found.'}</Alert><Button variant="ghost" onClick={() => router.back()} className="mt-4" leftIcon={<ArrowLeft className="w-4 h-4"/>}>Go back</Button></div>;
+  if (error || !job) return <div className="max-w-4xl mx-auto"><Alert variant="error">{error ?? 'Job not found.'}</Alert><Button variant="ghost" onClick={() => router.push(ROUTES.FARMER_JOBS)} className="mt-4" leftIcon={<ArrowLeft className="w-4 h-4"/>}>Go back</Button></div>;
 
   const pending = applications.filter(a => a.status === 'pending');
   const accepted = applications.filter(a => a.status === 'accepted');
@@ -86,7 +86,7 @@ export default function FarmerJobDetailPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-start gap-4">
-        <button onClick={() => router.back()} className="mt-1 p-1 rounded text-neutral-400 hover:text-neutral-700">
+        <button onClick={() => router.push(ROUTES.FARMER_JOBS)} className="mt-1 p-1 rounded text-neutral-400 hover:text-neutral-700">
           <ArrowLeft className="w-5 h-5"/>
         </button>
         <div className="flex-1 min-w-0">

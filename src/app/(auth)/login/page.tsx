@@ -51,7 +51,9 @@ export default function LoginPage() {
   // Once logged in, redirect to correct dashboard
   React.useEffect(() => {
     if (userProfile) {
-      router.replace(ROLE_REDIRECT[userProfile.role]);
+      const jobId = new URLSearchParams(window.location.search).get('workerJob');
+      const workerJob = userProfile.role === 'worker' && jobId && /^[a-zA-Z0-9_-]+$/.test(jobId);
+      router.replace(workerJob ? `${ROUTES.WORKER_JOBS}/${jobId}` : ROLE_REDIRECT[userProfile.role]);
     }
   }, [userProfile, router]);
 

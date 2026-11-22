@@ -231,3 +231,8 @@ select {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+@keyframes dashboard-drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}

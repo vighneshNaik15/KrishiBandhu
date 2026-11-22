@@ -45,6 +45,11 @@ function facilityMapQuery(facility: StorageFacility): string {
 }
 
 export default function HarvestStoragePage() {
+  const { firebaseUser, userProfile, loading } = useAuth();
+  const farmerAction = userProfile?.role === 'farmer' ? ROUTES.FARMER_HARVEST_REQUEST_NEW :
+    !loading && !firebaseUser ? ROUTES.REGISTER_FARMER : undefined;
+  const providerAction = userProfile?.role === 'worker' ? ROUTES.WORKER_SERVICE_PROFILE :
+    !loading && !firebaseUser ? ROUTES.REGISTER_WORKER : undefined;
   const [tab, setTab] = useState<ModuleTab>('harvesting');
   const [providers, setProviders] = useState<ServiceListing[]>([]);
   const [facilities, setFacilities] = useState<StorageFacility[]>([]);
@@ -193,8 +198,8 @@ export default function HarvestStoragePage() {
               <p className="mt-1 text-sm text-neutral-600">No sample providers are listed. Workers can submit a real listing for review.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={ROUTES.FARMER_HARVEST_REQUEST_NEW}><Button>Post a request</Button></Link>
-              <Link href={ROUTES.WORKER_SERVICE_PROFILE}><Button variant="secondary">Register as a provider</Button></Link>
+              {farmerAction && <Link href={farmerAction}><Button>Post a request</Button></Link>}
+              {providerAction && <Link href={providerAction}><Button variant="secondary">Offer harvest services</Button></Link>}
             </div>
           </div>
           <Alert variant="info" title="Confirm current hire charges">
@@ -220,7 +225,7 @@ export default function HarvestStoragePage() {
               <EmptyState
                 title="No approved providers in this area yet"
                 description="Providers may register their own service details. Farmers can still post a request for workers to apply."
-                action={<Link href={ROUTES.FARMER_HARVEST_REQUEST_NEW}><Button>Post a harvest request</Button></Link>}
+                action={farmerAction && <Link href={farmerAction}><Button>Post a harvest request</Button></Link>}
               />
             </Card>
           ) : view === 'map' ? (

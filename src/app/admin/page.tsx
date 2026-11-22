@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Users, Package, Briefcase, ShoppingBag, AlertTriangle, Warehouse } from 'lucide-react';
+import { Users, Warehouse } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { StatCard, Card } from '@/components/ui/Card';
 import { ROUTES } from '@/lib/constants';
@@ -24,13 +24,7 @@ export default function AdminDashboardPage() {
   const buyers = users.filter(u => u.role === 'buyer');
 
   const quickLinks = [
-    { label: 'Manage Users', href: ROUTES.ADMIN_USERS, icon: Users },
-    { label: 'View Products', href: ROUTES.ADMIN_PRODUCTS, icon: Package },
-    { label: 'View Jobs', href: ROUTES.ADMIN_JOBS, icon: Briefcase },
-    { label: 'View Orders', href: ROUTES.ADMIN_ORDERS, icon: ShoppingBag },
-    { label: 'Reports', href: ROUTES.ADMIN_REPORTS, icon: AlertTriangle },
     { label: 'Harvest & Storage Review', href: ROUTES.ADMIN_HARVEST_SERVICES, icon: Warehouse },
-    { label: 'Schemes', href: ROUTES.ADMIN_SCHEMES, icon: Package },
   ];
 
   return (
@@ -67,7 +61,6 @@ export default function AdminDashboardPage() {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-neutral-800">Recent Users</h2>
-            <Link href={ROUTES.ADMIN_USERS} className="text-xs text-primary-600 font-medium">View all</Link>
           </div>
           {loading ? (
             <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-12 bg-neutral-100 rounded-lg animate-pulse"/>)}</div>

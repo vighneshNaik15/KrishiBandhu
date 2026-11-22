@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { generateGeminiJson } from '../gemini';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -23,15 +23,7 @@ const ResponseSchema = z.object({
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { error: 'AI advisory is not configured. Add GEMINI_API_KEY to your environment.' },
-      { status: 503 }
-    );
-  }
-
+export async function POST(req: Request) {
   let body: unknown;
   try {
     body = await req.json();
@@ -85,57 +77,5 @@ Respond ONLY with valid JSON in this exact shape:
   "confidence": <0.0 to 1.0>
 }`;
 
-  try {
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemInstruction }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.7,
-            maxOutputTokens: 1024,
-          },
-        }),
-        signal: AbortSignal.timeout(30_000),
-      }
-    );
-
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text().catch(() => '');
-      console.error('Gemini API error:', geminiRes.status, errText);
-      return Response.json({ error: 'AI service temporarily unavailable.' }, { status: 502 });
-    }
-
-    const geminiData = (await geminiRes.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    if (!rawText) {
-      return Response.json({ error: 'No response from AI.' }, { status: 502 });
-    }
-
-    const aiParsed = ResponseSchema.safeParse(JSON.parse(rawText));
-    if (!aiParsed.success) {
-      // Return raw answer if schema doesn't match exactly
-      return Response.json({
-        answer: rawText,
-        suggestedFollowups: [],
-        confidence: 0.5,
-      });
-    }
-
-    return Response.json(aiParsed.data);
-  } catch (error: unknown) {
-    const timedOut = error instanceof Error && error.name === 'TimeoutError';
-    console.error('Advisory route error:', error);
-    return Response.json(
-      { error: timedOut ? 'AI request timed out. Please try again.' : 'AI advisory failed. Please try again.' },
-      { status: timedOut ? 504 : 502 }
-    );
-  }
+  return generateGeminiJson({ prompt, systemInstruction, schema: ResponseSchema, temperature: 0.7 });
 }

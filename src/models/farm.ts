@@ -19,10 +19,11 @@ export type IrrigationType =
   | 'borewell'
   | 'other';
 
-export type AreaUnit = 'acres' | 'hectares' | 'guntha' | 'sqft';
+export type AreaUnit = 'acres' | 'hectares' | 'guntha' | 'sqft' | 'sqm';
 
 export interface Farm {
   farmId: string;
+  mutationId?: string;
   farmerId: string;      // farmerProfile doc ID
   farmerUserId: string;  // Firebase Auth UID
 
@@ -37,6 +38,7 @@ export interface Farm {
   state: string;
   pincode?: string;
   coordinates?: GeoPoint;
+  boundary?: GeoPoint[];
 
   // Farm details
   area: number;
@@ -65,6 +67,7 @@ export interface CreateFarmData {
   state: string;
   pincode?: string;
   coordinates?: GeoPoint;
+  boundary?: GeoPoint[];
   area: number;
   areaUnit: AreaUnit;
   soilType?: SoilType;
@@ -97,4 +100,5 @@ export const AREA_UNIT_LABELS: Record<AreaUnit, string> = {
   hectares: 'Hectares',
   guntha: 'Guntha',
   sqft: 'Sq. Feet',
+  sqm: 'Square metres',
 };

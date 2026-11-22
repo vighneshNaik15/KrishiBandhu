@@ -99,7 +99,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Features ─────────────────────────────────────────────── */}
-      <section className="section-padding bg-neutral-50">
+      <section id="about" className="section-padding bg-neutral-50 scroll-mt-20">
         <div className="container-page">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold font-heading text-neutral-900 mb-3">

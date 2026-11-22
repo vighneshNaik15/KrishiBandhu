@@ -32,7 +32,8 @@ export interface CropDiseaseAssessment {
   modelVersion: string;
   modelScore: number;
   alternativeScores: CropDiseaseScore[];
-  imageStoragePath: string;
+  imageStoragePath?: string;
+  uncertaintyReasons?: string[];
   assessedAt: Timestamp;
   status: 'uncertain' | 'unverified';
 }

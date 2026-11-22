@@ -5,11 +5,9 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   Camera,
-  CheckCircle,
   CloudSun,
   ImagePlus,
   RotateCcw,
-  Save,
   ShieldAlert,
   Stethoscope,
   Upload,
@@ -22,7 +20,6 @@ import type {
   CropDiseasePrediction,
   SupportedCrop,
 } from '@/models/cropDiseaseAssessment';
-import { cropDiseaseService } from '@/services/cropDiseaseService';
 import {
   analyzeCropImage,
   getCropModelStatuses,
@@ -51,7 +48,7 @@ function getUncertaintyMessage(reasons: string[]): string {
 }
 
 export function CropDoctorPage() {
-  const { firebaseUser, userProfile } = useAuth();
+  const { firebaseUser } = useAuth();
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const [crop, setCrop] = useState<SupportedCrop>('rice');
@@ -62,8 +59,6 @@ export function CropDoctorPage() {
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [assessmentTime, setAssessmentTime] = useState<Date | null>(null);
 
@@ -97,7 +92,6 @@ export function CropDoctorPage() {
   function chooseImage(file: File | undefined) {
     setImageError(null);
     setAnalysisError(null);
-    setSaveMessage(null);
     setPrediction(null);
     setAssessmentTime(null);
     if (!file) return;
@@ -124,7 +118,6 @@ export function CropDoctorPage() {
     setAssessmentTime(null);
     setImageError(null);
     setAnalysisError(null);
-    setSaveMessage(null);
     if (fileInput.current) fileInput.current.value = '';
     if (cameraInput.current) cameraInput.current.value = '';
   }
@@ -136,7 +129,6 @@ export function CropDoctorPage() {
     }
     setAnalyzing(true);
     setAnalysisError(null);
-    setSaveMessage(null);
     setPrediction(null);
     try {
       const idToken = await firebaseUser.getIdToken();
@@ -147,23 +139,6 @@ export function CropDoctorPage() {
       setAnalysisError(error instanceof Error ? error.message : 'The crop image could not be analyzed.');
     } finally {
       setAnalyzing(false);
-    }
-  }
-
-  async function saveReport() {
-    if (!image || !prediction || !userProfile?.uid) {
-      setSaveMessage('The report is missing its image, prediction, or farmer account.');
-      return;
-    }
-    setSaving(true);
-    setSaveMessage(null);
-    try {
-      await cropDiseaseService.saveReport(userProfile.uid, image, prediction);
-      setSaveMessage('Report saved to your private disease assessment history.');
-    } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : 'The report could not be saved.');
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -197,14 +172,6 @@ export function CropDoctorPage() {
       {serviceError && <Alert variant="error" title="Inference service unavailable">{serviceError}</Alert>}
       {imageError && <Alert variant="error" title="Image not accepted">{imageError}</Alert>}
       {analysisError && <Alert variant="error" title="Analysis failed">{analysisError}</Alert>}
-      {saveMessage && (
-        <Alert
-          variant={saveMessage.startsWith('Report saved') ? 'success' : 'error'}
-          title={saveMessage.startsWith('Report saved') ? 'Report saved' : 'Could not save report'}
-        >
-          {saveMessage}
-        </Alert>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <Card>
@@ -213,12 +180,11 @@ export function CropDoctorPage() {
               <span className="mb-2 block text-sm font-semibold text-neutral-800">Select crop</span>
               <select
                 value={crop}
-                disabled={analyzing || saving}
+                disabled={analyzing}
                 onChange={(event) => {
                   setCrop(event.target.value as SupportedCrop);
                   setPrediction(null);
                   setAssessmentTime(null);
-                  setSaveMessage(null);
                 }}
                 className="h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
               >
@@ -250,7 +216,7 @@ export function CropDoctorPage() {
               type="file"
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
-              disabled={analyzing || saving}
+              disabled={analyzing}
               onChange={(event) => {
                 chooseImage(event.currentTarget.files?.[0]);
                 event.currentTarget.value = '';
@@ -262,7 +228,7 @@ export function CropDoctorPage() {
               accept="image/jpeg,image/png,image/webp"
               capture="environment"
               className="sr-only"
-              disabled={analyzing || saving}
+              disabled={analyzing}
               onChange={(event) => {
                 chooseImage(event.currentTarget.files?.[0]);
                 event.currentTarget.value = '';
@@ -278,10 +244,10 @@ export function CropDoctorPage() {
                   className="max-h-80 w-full rounded-xl border border-neutral-200 object-contain"
                 />
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" size="sm" disabled={analyzing || saving} onClick={() => fileInput.current?.click()} leftIcon={<ImagePlus className="h-4 w-4" />}>
+                  <Button variant="secondary" size="sm" disabled={analyzing} onClick={() => fileInput.current?.click()} leftIcon={<ImagePlus className="h-4 w-4" />}>
                     Change image
                   </Button>
-                  <Button variant="ghost" size="sm" disabled={analyzing || saving} onClick={removeImage} leftIcon={<RotateCcw className="h-4 w-4" />}>
+                  <Button variant="ghost" size="sm" disabled={analyzing} onClick={removeImage} leftIcon={<RotateCcw className="h-4 w-4" />}>
                     Remove image
                   </Button>
                 </div>
@@ -295,10 +261,10 @@ export function CropDoctorPage() {
                 <p className="mt-3 text-sm font-semibold text-neutral-800">Add a clear crop image</p>
                 <p className="mt-1 text-xs text-neutral-500">JPEG, PNG, or WebP · up to 5 MB</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  <Button size="sm" variant="secondary" disabled={analyzing || saving} onClick={() => fileInput.current?.click()} leftIcon={<ImagePlus className="h-4 w-4" />}>
+                  <Button size="sm" variant="secondary" disabled={analyzing} onClick={() => fileInput.current?.click()} leftIcon={<ImagePlus className="h-4 w-4" />}>
                     Choose image
                   </Button>
-                  <Button size="sm" variant="secondary" disabled={analyzing || saving} onClick={() => cameraInput.current?.click()} leftIcon={<Camera className="h-4 w-4" />}>
+                  <Button size="sm" variant="secondary" disabled={analyzing} onClick={() => cameraInput.current?.click()} leftIcon={<Camera className="h-4 w-4" />}>
                     Use camera
                   </Button>
                 </div>
@@ -410,9 +376,7 @@ export function CropDoctorPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={saveReport} isLoading={saving} disabled={saving || !userProfile?.uid} leftIcon={<Save className="h-4 w-4" />}>
-                    Save report
-                  </Button>
+                  <Button disabled aria-describedby="report-saving-note">Save report</Button>
                   <Link
                     href={ROUTES.FARMER_WEATHER}
                     className="inline-flex h-11 items-center gap-2 rounded-lg border border-neutral-300 bg-white px-5 text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50"
@@ -421,10 +385,9 @@ export function CropDoctorPage() {
                     Check farm weather
                   </Link>
                 </div>
-                <div className="flex items-start gap-2 text-xs text-neutral-500">
-                  <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                  <span>Saved reports are private to your farmer account. Weather information is separate and is not used to diagnose this image.</span>
-                </div>
+                <p id="report-saving-note" className="text-xs text-neutral-600">
+                  Report saving is unavailable while persistent photo storage is disabled. This assessment is visible until you leave or reload this page.
+                </p>
                 <p className="flex items-start gap-2 text-xs text-neutral-500">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                   <span>Krishi Mitra chat and in-app expert requests are not available in the current repository. Please seek local expert verification before acting.</span>

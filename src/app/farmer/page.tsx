@@ -9,53 +9,54 @@ import { productService } from '@/services/productService';
 import { orderService } from '@/services/orderService';
 import { StatCard, EmptyState, Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
+import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 import { Badge } from '@/components/ui/Badge';
 import { ROUTES } from '@/lib/constants';
 import { formatDate, formatPrice } from '@/utils/formatters';
 import { cropDiseaseService } from '@/services/cropDiseaseService';
-import type { Farm } from '@/models/farm';
-import type { Product } from '@/models/product';
-import type { Order } from '@/models/order';
-import type { CropDiseaseAssessment } from '@/models/cropDiseaseAssessment';
+
+async function loadResource<T>(request: Promise<T[]>, label: string) {
+  try {
+    return { data: await request, error: null };
+  } catch (error) {
+    return { data: [] as T[], error: getFirebaseLoadErrorMessage(error, label) };
+  }
+}
+
+async function loadDashboard(uid: string) {
+  const [farms, products, orders, assessments] = await Promise.all([
+    loadResource(farmService.getByFarmer(uid), 'Farms'),
+    loadResource(productService.getByFarmer(uid), 'Products'),
+    loadResource(orderService.getByFarmer(uid), 'Orders'),
+    loadResource(cropDiseaseService.getByFarmer(uid), 'Disease assessments'),
+  ]);
+  return { farms, products, orders, assessments };
+}
 
 export default function FarmerDashboardPage() {
   const { userProfile } = useAuth();
-  const [farms, setFarms] = useState<Farm[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [recentAssessments, setRecentAssessments] = useState<CropDiseaseAssessment[]>([]);
-  const [loading, setLoading] = useState(true);
+  return userProfile ? <FarmerDashboard key={userProfile.uid} farmerId={userProfile.uid} name={userProfile.name} /> : null;
+}
 
-  // We use the farmer's UID as farmerId for now (profile to be created separately)
-  const farmerId = userProfile?.uid ?? '';
+function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string }) {
+  const [dashboard, setDashboard] = useState<Awaited<ReturnType<typeof loadDashboard>>>();
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!farmerId) return;
+    let active = true;
+    void loadDashboard(farmerId).then(result => {
+      if (active) setDashboard(result);
+    });
+    return () => { active = false; };
+  }, [farmerId, attempt]);
 
-    const load = async () => {
-      try {
-        const [farmsData, productsData, ordersData] = await Promise.all([
-          farmService.getByFarmer(farmerId),
-          productService.getByFarmer(farmerId),
-          orderService.getByFarmer(farmerId),
-        ]);
-        setFarms(farmsData);
-        setProducts(productsData);
-        setOrders(ordersData);
-        try {
-          setRecentAssessments(await cropDiseaseService.getByFarmer(farmerId));
-        } catch (assessmentError) {
-          console.error('Disease assessment dashboard load error:', assessmentError);
-        }
-      } catch (err) {
-        console.error('Dashboard load error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [farmerId]);
+  const loading = !dashboard;
+  const farms = dashboard?.farms.data ?? [];
+  const products = dashboard?.products.data ?? [];
+  const orders = dashboard?.orders.data ?? [];
+  const recentAssessments = dashboard?.assessments.data ?? [];
+  const hasError = dashboard && Object.values(dashboard).some(resource => resource.error);
 
   const pendingOrders = orders.filter((o) => o.status === 'pending');
   const activeProducts = products.filter((p) => p.status === 'active');
@@ -65,34 +66,44 @@ export default function FarmerDashboardPage() {
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold font-heading text-neutral-900">
-          Welcome, {userProfile?.name?.split(' ')[0]} 👋
+          Welcome, {name.split(' ')[0]} 👋
         </h1>
         <p className="text-sm text-neutral-500 mt-1">Here&apos;s what&apos;s happening on your farm today.</p>
       </div>
+
+      {hasError && (
+        <Alert variant="warning" title="Some dashboard data is unavailable">
+          {dashboard.products.error && <p>{dashboard.products.error}</p>}
+          <Button className="mt-2" size="sm" variant="secondary" onClick={() => {
+            setDashboard(undefined);
+            setAttempt(current => current + 1);
+          }}>Retry dashboard</Button>
+        </Alert>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           label="My Farms"
-          value={loading ? '—' : farms.length}
+          value={loading || dashboard?.farms.error ? '—' : farms.length}
           icon={<TreePalm className="w-5 h-5" />}
           accentColor="green"
         />
         <StatCard
           label="Active Products"
-          value={loading ? '—' : activeProducts.length}
+          value={loading || dashboard?.products.error ? '—' : activeProducts.length}
           icon={<Package className="w-5 h-5" />}
           accentColor="amber"
         />
         <StatCard
           label="Pending Orders"
-          value={loading ? '—' : pendingOrders.length}
+          value={loading || dashboard?.orders.error ? '—' : pendingOrders.length}
           icon={<ShoppingBag className="w-5 h-5" />}
           accentColor="blue"
         />
         <StatCard
           label="Total Orders"
-          value={loading ? '—' : orders.length}
+          value={loading || dashboard?.orders.error ? '—' : orders.length}
           icon={<Briefcase className="w-5 h-5" />}
           accentColor="green"
         />
@@ -107,9 +118,9 @@ export default function FarmerDashboardPage() {
               { label: 'Add a Farm', href: ROUTES.FARMER_FARMS_NEW, icon: TreePalm },
               { label: 'Add a Crop', href: ROUTES.FARMER_CROPS_NEW, icon: Sprout },
               { label: 'Post a Job', href: ROUTES.FARMER_JOBS_NEW, icon: Briefcase },
-              { label: 'Find a Market', href: ROUTES.MARKET_FINDER, icon: Store },
-              { label: 'Find Storage', href: ROUTES.STORAGE_FINDER, icon: Warehouse },
-              { label: 'Harvest & Storage Services', href: ROUTES.HARVEST_SERVICES, icon: Tractor },
+              { label: 'Find a Market', href: ROUTES.FARMER_MARKET_FINDER, icon: Store },
+              { label: 'Find Storage', href: ROUTES.FARMER_STORAGE_FINDER, icon: Warehouse },
+              { label: 'Harvest & Storage Services', href: ROUTES.FARMER_HARVEST_SERVICES, icon: Tractor },
               { label: 'Post Harvest Request', href: ROUTES.FARMER_HARVEST_REQUEST_NEW, icon: Briefcase },
               { label: 'List a Product', href: ROUTES.FARMER_PRODUCTS_NEW, icon: Package },
               { label: 'Farm Weather', href: ROUTES.FARMER_WEATHER, icon: CloudSun },
@@ -150,6 +161,8 @@ export default function FarmerDashboardPage() {
                 <div key={i} className="h-16 bg-neutral-100 rounded-lg animate-pulse" />
               ))}
             </div>
+          ) : dashboard?.orders.error ? (
+            <Alert variant="warning">{dashboard.orders.error}</Alert>
           ) : orders.length === 0 ? (
             <EmptyState
               title="No orders yet"
@@ -189,7 +202,11 @@ export default function FarmerDashboardPage() {
             View history
           </Link>
         </div>
-        {recentAssessments.length === 0 ? (
+        {loading ? (
+          <p role="status" className="text-sm text-neutral-500">Loading assessments?</p>
+        ) : dashboard?.assessments.error ? (
+          <Alert variant="warning">{dashboard.assessments.error}</Alert>
+        ) : recentAssessments.length === 0 ? (
           <p className="text-sm text-neutral-500">No saved assessments yet.</p>
         ) : (
           <div className="divide-y divide-neutral-100">
@@ -229,6 +246,8 @@ export default function FarmerDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-neutral-100 rounded-lg animate-pulse" />)}
           </div>
+        ) : dashboard?.farms.error ? (
+          <Alert variant="warning">{dashboard.farms.error}</Alert>
         ) : farms.length === 0 ? (
           <EmptyState
             title="No farms added yet"

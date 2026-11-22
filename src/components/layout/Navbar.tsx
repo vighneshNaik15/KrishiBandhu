@@ -50,14 +50,14 @@ export function Navbar() {
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-6">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={[
                   'text-sm font-medium transition-colors',
-                  pathname === link.href
+                  (pathname === link.href || pathname.startsWith(link.href + '/'))
                     ? 'text-primary-700'
                     : 'text-neutral-600 hover:text-neutral-900',
                 ].join(' ')}
@@ -68,7 +68,7 @@ export function Navbar() {
           </div>
 
           {/* Desktop auth */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3">
             {firebaseUser ? (
               <div className="relative">
                 <button
@@ -120,7 +120,7 @@ export function Navbar() {
 
           {/* Mobile hamburger */}
           <button
-            className="md:hidden p-2 rounded-lg text-neutral-600 hover:bg-neutral-100"
+            className="lg:hidden p-2 rounded-lg text-neutral-600 hover:bg-neutral-100"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Toggle menu"
           >
@@ -131,7 +131,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-neutral-200 bg-white py-3">
+        <div className="lg:hidden border-t border-neutral-200 bg-white py-3">
           <div className="container-page flex flex-col gap-1">
             {NAV_LINKS.map((link) => (
               <Link

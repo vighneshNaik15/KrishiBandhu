@@ -41,14 +41,17 @@ export function CropDiseaseHistoryPage() {
     if (!farmerUid) return;
 
     let active = true;
+    const urls: string[] = [];
     cropDiseaseService.getByFarmer(farmerUid)
       .then(async (reports) => {
         const reportsWithImages = await Promise.all(reports.map(async (report) => {
           try {
-            const imageUrl = await cropDiseaseService.getImageUrl(report.imageStoragePath);
+            const blob = await cropDiseaseService.getImage(report);
+            if (!active) return { ...report, imageUrl: null, imageError: false };
+            const imageUrl = URL.createObjectURL(blob);
+            urls.push(imageUrl);
             return { ...report, imageUrl, imageError: false };
-          } catch (imageError) {
-            console.error(`Could not load assessment image ${report.assessmentId}.`, imageError);
+          } catch {
             return { ...report, imageUrl: null, imageError: true };
           }
         }));
@@ -76,6 +79,7 @@ export function CropDiseaseHistoryPage() {
 
     return () => {
       active = false;
+      urls.forEach(url => URL.revokeObjectURL(url));
     };
   }, [farmerUid]);
 
@@ -102,7 +106,7 @@ export function CropDiseaseHistoryPage() {
         <Card>
           <EmptyState
             title="No saved reports"
-            description="After analyzing an image, save its report to see it here."
+            description="Previously saved assessments appear here. Saving new reports is currently disabled."
             action={
               <Link href={ROUTES.FARMER_CROP_DOCTOR} className="text-sm font-semibold text-primary-700">
                 Start an assessment

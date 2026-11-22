@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/features/auth/AuthContext';
 import { Search, Briefcase, MapPin, Calendar, Users, IndianRupee } from 'lucide-react';
 import { jobService } from '@/services/jobService';
 import { Input, Select } from '@/components/ui/Input';
@@ -24,6 +25,7 @@ function getJobLoadError(error: unknown): string {
 }
 
 export default function PublicJobsPage() {
+  const { firebaseUser, userProfile, loading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,9 +97,15 @@ export default function PublicJobsPage() {
                     {job.paymentAmount && <span className="flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5 text-primary-500"/> {formatPrice(job.paymentAmount)} {PAYMENT_TYPE_LABELS[job.paymentType]}</span>}
                   </div>
                 </div>
-                <Link href={`${ROUTES.WORKER_JOBS}/${job.jobId}`} className="shrink-0">
-                  <span className="text-xs text-primary-600 font-medium hover:text-primary-700">View & Apply →</span>
-                </Link>
+                {userProfile?.role === 'worker' ? (
+                  <Link href={`${ROUTES.WORKER_JOBS}/${job.jobId}`} className="shrink-0 text-xs font-medium text-primary-700">
+                    View &amp; apply
+                  </Link>
+                ) : !authLoading && !firebaseUser ? (
+                  <Link href={`${ROUTES.LOGIN}?workerJob=${encodeURIComponent(job.jobId)}`} className="shrink-0 text-xs font-medium text-primary-700">
+                    Sign in to apply
+                  </Link>
+                ) : null}
               </div>
             </Card>
           ))}

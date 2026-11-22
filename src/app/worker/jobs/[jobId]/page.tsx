@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { ArrowLeft, MapPin, Calendar, Users, IndianRupee, Send } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { jobService } from '@/services/jobService';
@@ -18,7 +19,6 @@ import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 
 export default function WorkerJobDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const { userProfile } = useAuth();
   const jobId = params.jobId as string;
 
@@ -75,9 +75,9 @@ export default function WorkerJobDetailPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <button onClick={() => router.back()} className="text-sm text-neutral-500 hover:text-neutral-700 flex items-center gap-1">
+      <Link href={ROUTES.WORKER_JOBS} className="text-sm text-neutral-500 hover:text-neutral-700 flex items-center gap-1">
         <ArrowLeft className="w-4 h-4"/> Back to jobs
-      </button>
+      </Link>
 
       <Card>
         <h1 className="text-xl font-bold font-heading text-neutral-900 mb-1">{job.title}</h1>

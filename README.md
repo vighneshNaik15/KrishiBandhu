@@ -12,7 +12,7 @@ KrishiBandhu is an integrated, AI-powered agriculture management platform connec
 - **Agricultural product marketplace** — farmer listings and stock, buyer discovery, enquiries, orders, and transaction records.
 - **Market Finder** — browse the supplied market dataset by state/district and filter the recorded commodity group and varieties.
 - **Storage Finder** — browse the supplied storage dataset by district; show source-provided capacity, address, and manager details without filling missing values.
-- **Harvest & Storage Services (Goa pilot)** — public harvesting/post-harvest discovery, farmer work requests, worker provider listings, private request photos, worker applications and selection, storage enquiries, and admin review. Cold Storage Finder also includes every district in the supplied storage dataset alongside separate Goa leads. The phase is still in progress; initial facility candidates remain provisional and unverified. See the [implementation roadmap](docs/implementation-roadmap.md).
+- **Harvest & Storage Services (Goa pilot)** — public harvesting/post-harvest discovery, farmer work requests, worker provider listings, read-only access to previously saved request photos, worker applications and selection, storage enquiries, and admin review. Cold Storage Finder also includes every district in the supplied storage dataset alongside separate Goa leads. The phase is still in progress; initial facility candidates remain provisional and unverified. See the [implementation roadmap](docs/implementation-roadmap.md).
 - **Government scheme intelligence** — location-relevant schemes, benefits, eligibility, required documents, application steps, and official links.
 - **Platform operations** — notifications, moderation, ratings/reviews, admin dashboards, reports, and analytics.
 
@@ -27,7 +27,7 @@ KrishiBandhu is an integrated, AI-powered agriculture management platform connec
 
 ## Technology
 
-Next.js 16 (App Router), React, TypeScript, Tailwind CSS, Firebase Authentication, Cloud Firestore, Firebase Storage, a separate Python FastAPI/TensorFlow crop-inference service, the existing Google Gen AI SDK (`@google/genai`), Open-Meteo, Leaflet, and OpenStreetMap. Existing frontend dependency versions and routes are retained; modules are delivered incrementally.
+Next.js 16 (App Router), React, TypeScript, Tailwind CSS, Firebase Authentication, Cloud Firestore, read-only Firebase Storage support for legacy photos, a separate Python FastAPI/TensorFlow crop-inference service, the existing Google Gen AI SDK (`@google/genai`), Open-Meteo, Leaflet, and OpenStreetMap. Existing frontend dependency versions and routes are retained; modules are delivered incrementally.
 
 ## Current implementation status
 
@@ -57,7 +57,7 @@ Market Finder and Storage Finder currently read the original CSV datasets packag
 
 - Node.js compatible with the installed Next.js 16 version
 - npm
-- A Firebase project with Authentication, Firestore, and Storage enabled
+- A Firebase project with Authentication and Firestore. Firebase Storage is optional and is used only to read previously saved photos.
 
 ### Run locally
 
@@ -69,6 +69,12 @@ npm run dev
 ```
 
 The Gemini key must remain server-side and must not use a `NEXT_PUBLIC_` prefix. Open-Meteo does not require an API key. The crop inference service is separate; its setup, model files, pinned Python runtime, and limits are documented in [the service guide](services/crop-inference/README.md). Configure and deploy Firebase rules/indexes before using real accounts or data. See [architecture](docs/architecture.md) and [database schema](docs/database-schema.md).
+
+### Working without persistent photo storage
+
+Crop Doctor uses the separate Python service to analyze the selected image. The app previews the image and shows the assessment on the current page. **Save report** is disabled while persistent photo storage is unavailable. Existing assessments remain in Disease History, and previously stored photos are shown when they are accessible.
+
+Marketplace listings can be created and edited without photos. Harvest requests can be published using text instructions. The app retains historical image references and shows a placeholder or message when images are unavailable. No new photo is stored through these flows.
 
 ## Project documentation
 
