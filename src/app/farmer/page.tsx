@@ -42,11 +42,15 @@ export default function FarmerDashboardPage() {
 function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string }) {
   const [dashboard, setDashboard] = useState<Awaited<ReturnType<typeof loadDashboard>>>();
   const [attempt, setAttempt] = useState(0);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     let active = true;
     void loadDashboard(farmerId).then(result => {
-      if (active) setDashboard(result);
+      if (active) {
+        setDashboard(result);
+        setRetrying(false);
+      }
     });
     return () => { active = false; };
   }, [farmerId, attempt]);
@@ -56,7 +60,7 @@ function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string })
   const products = dashboard?.products.data ?? [];
   const orders = dashboard?.orders.data ?? [];
   const recentAssessments = dashboard?.assessments.data ?? [];
-  const hasError = dashboard && Object.values(dashboard).some(resource => resource.error);
+  const errors = dashboard ? Object.values(dashboard).flatMap(({ error }) => error ? [error] : []) : [];
 
   const pendingOrders = orders.filter((o) => o.status === 'pending');
   const activeProducts = products.filter((p) => p.status === 'active');
@@ -71,13 +75,15 @@ function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string })
         <p className="text-sm text-neutral-500 mt-1">Here&apos;s what&apos;s happening on your farm today.</p>
       </div>
 
-      {hasError && (
+      {errors.length > 0 && (
         <Alert variant="warning" title="Some dashboard data is unavailable">
-          {dashboard.products.error && <p>{dashboard.products.error}</p>}
-          <Button className="mt-2" size="sm" variant="secondary" onClick={() => {
-            setDashboard(undefined);
+          <ul className="list-disc space-y-1 pl-5">
+            {errors.map(error => <li key={error}>{error}</li>)}
+          </ul>
+          <Button className="mt-2" size="sm" variant="secondary" disabled={retrying} onClick={() => {
+            setRetrying(true);
             setAttempt(current => current + 1);
-          }}>Retry dashboard</Button>
+          }}>{retrying ? 'Retrying dashboard…' : 'Retry dashboard'}</Button>
         </Alert>
       )}
 
