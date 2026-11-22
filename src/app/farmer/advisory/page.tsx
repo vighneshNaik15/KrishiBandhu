@@ -1,5 +1,6 @@
 'use client';
 
+import { auth } from '@/lib/firebase/config';
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Bot, Loader2, Mic, RotateCcw, Send, Sparkles, User } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -40,6 +41,7 @@ export default function AdvisoryPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [speechAvailable, setSpeechAvailable] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -76,7 +78,12 @@ export default function AdvisoryPage() {
       }
     };
     recognitionRef.current = rec;
-    return () => rec.abort();
+    const timer = window.setTimeout(() => setSpeechAvailable(true), 0);
+    return () => {
+      window.clearTimeout(timer);
+      recognitionRef.current = null;
+      rec.abort();
+    };
   }, []);
 
   const handleMic = () => {
@@ -100,12 +107,15 @@ export default function AdvisoryPage() {
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
-    const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
+    const history = messages.slice(-6).map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
 
     try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Sign in as a farmer to continue.');
+      const idToken = await user.getIdToken();
       const res = await fetch('/api/ai/advisory', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           question: trimmed,
           language: 'English',
@@ -284,7 +294,7 @@ export default function AdvisoryPage() {
 
         {/* Input bar */}
         <div className="border-t border-neutral-100 p-3">
-          <form onSubmit={handleSubmit} className="flex gap-2">
+          <form onSubmit={event => void handleSubmit(event)} className="flex gap-2">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -292,7 +302,7 @@ export default function AdvisoryPage() {
               disabled={isLoading}
               className="flex-1"
             />
-            {recognitionRef.current && (
+            {speechAvailable && (
               <Button
                 type="button"
                 variant="secondary"

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { authorizeAi, readAiJson } from '../access';
 import { generateGeminiJson } from '../gemini';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -7,11 +8,22 @@ const RequestBodySchema = z.object({
   query: z.string().max(500).optional().default(''),
 });
 
+function governmentLink(value: string): string {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'https:' && !url.username && !url.password && !url.port &&
+        (url.hostname.endsWith('.gov.in') || url.hostname.endsWith('.nic.in'))) {
+      return url.href;
+    }
+  } catch { /* An invalid model-generated link is omitted. */ }
+  return '#';
+}
+
 const SchemeSchema = z.object({
   name: z.string(),
   description: z.string(),
   eligibility: z.string(),
-  link: z.string().transform(link => /^https?:\/\//i.test(link) ? link : '#'),
+  link: z.string().transform(governmentLink),
 });
 
 const ResponseSchema = z.object({
@@ -25,14 +37,12 @@ export type Scheme = z.infer<typeof SchemeSchema>;
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: 'Invalid JSON body.' }, { status: 400 });
-  }
+  const input = await readAiJson(req);
+  if ('error' in input) return input.error;
+  const denied = await authorizeAi(req);
+  if (denied) return denied;
 
-  const parsed = RequestBodySchema.safeParse(body);
+  const parsed = RequestBodySchema.safeParse(input.body);
   if (!parsed.success) {
     return Response.json({ error: 'Invalid request.' }, { status: 400 });
   }

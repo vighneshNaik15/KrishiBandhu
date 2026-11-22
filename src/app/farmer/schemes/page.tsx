@@ -1,5 +1,6 @@
 'use client';
 
+import { auth } from '@/lib/firebase/config';
 import { useState, type FormEvent, useEffect } from 'react';
 import { ArrowRight, BookOpen, Bot, Loader2, ScrollText, Search } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -34,9 +35,12 @@ export default function SchemesPage() {
     setError(null);
 
     try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Sign in as a farmer to continue.');
+      const idToken = await user.getIdToken();
       const res = await fetch('/api/ai/schemes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ query: searchQuery }),
       });
 
@@ -58,7 +62,8 @@ export default function SchemesPage() {
 
   // Load default schemes on mount
   useEffect(() => {
-    void fetchSchemes('');
+    const timer = window.setTimeout(() => void fetchSchemes(''), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const handleSearch = (e: FormEvent) => {

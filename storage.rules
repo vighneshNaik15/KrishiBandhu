@@ -26,18 +26,8 @@ service firebase.storage {
         && firestore.get(jobPath(jobId)).data.farmerUserId == farmerId;
     }
 
-    function validImageUpload() {
-      return request.resource.size <= 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp)');
-    }
-
     match /harvestRequests/{farmerId}/{jobId}/{fileName} {
-      allow create, update: if isRole('farmer')
-        && request.auth.uid == farmerId
-        && validHarvestJob(jobId, farmerId)
-        && firestore.get(jobPath(jobId)).data.status == 'draft'
-        && validImageUpload();
-
+      allow write: if false;
       allow read: if (isRole('farmer')
           && request.auth.uid == farmerId
           && validHarvestJob(jobId, farmerId))
@@ -50,27 +40,11 @@ service firebase.storage {
               .hasAny([request.auth.uid])
           ));
 
-      allow delete: if isRole('farmer')
-        && request.auth.uid == farmerId
-        && validHarvestJob(jobId, farmerId);
     }
 
     match /cropDiseaseReports/{farmerId}/{assessmentId}/{fileName} {
-      allow create: if isRole('farmer')
-        && request.auth.uid == farmerId
-        && validImageUpload()
-        && (
-          (fileName == 'image.jpg'
-            && request.resource.contentType == 'image/jpeg')
-          || (fileName == 'image.png'
-            && request.resource.contentType == 'image/png')
-          || (fileName == 'image.webp'
-            && request.resource.contentType == 'image/webp')
-        );
-
-      allow read, delete: if isRole('farmer')
-        && request.auth.uid == farmerId;
-      allow update: if false;
+      allow read: if isRole('farmer') && request.auth.uid == farmerId;
+      allow write: if false;
     }
 
     match /{allPaths=**} {

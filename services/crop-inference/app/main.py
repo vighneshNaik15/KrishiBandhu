@@ -4,16 +4,19 @@ import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
 
 from app.image_processing import (
     InvalidImageError,
+    MAX_IMAGE_BYTES,
     preprocess_image,
 )
 from app.model_config import INPUT_SIZE, MODELS
@@ -25,6 +28,27 @@ logger = logging.getLogger("crop-inference")
 _models: dict[str, Any] = {}
 _model_status: dict[str, dict[str, Any]] = {}
 _prediction_lock = threading.Lock()
+_inference_window = 0.0
+_inference_counts: dict[str, int] = {}
+_inference_total = 0
+
+
+def _limit_inference(uid: str) -> None:
+    # Called on the async request loop before reading the upload.
+    global _inference_window, _inference_total
+    now = monotonic()
+    if now - _inference_window >= 60:
+        _inference_window = now
+        _inference_counts.clear()
+        _inference_total = 0
+    count = _inference_counts.get(uid, 0)
+    if count >= 8 or _inference_total >= 32:
+        raise HTTPException(status_code=429, detail="Inference limit reached. Try again in a minute.",
+                            headers={"Retry-After": "60"})
+    _inference_counts[uid] = count + 1
+    _inference_total += 1
+
+
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -248,19 +272,41 @@ def model_status() -> dict[str, Any]:
 
 @app.post("/predict")
 async def predict(
-    crop: str = Form(...),
-    image: UploadFile = File(...),
-    _: str = Depends(_authenticated_farmer),
+    request: Request,
+    farmer_uid: str = Depends(_authenticated_farmer),
 ) -> dict[str, Any]:
-    if crop not in MODELS:
-        raise HTTPException(status_code=422, detail="Choose rice, cotton, maize, or sugarcane.")
+    if not request.headers.get("content-type", "").lower().startswith("multipart/form-data;"):
+        raise HTTPException(status_code=415, detail="Use a multipart crop photo upload.")
+    max_body = MAX_IMAGE_BYTES + 64 * 1024
+    try:
+        declared_size = int(request.headers.get("content-length", "0"))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail="Invalid content length.") from error
+    if declared_size > max_body:
+        raise HTTPException(status_code=413, detail="The image must be 5 MB or smaller.")
 
-    contents = await image.read(5 * 1024 * 1024 + 1)
+    _limit_inference(farmer_uid)
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > max_body:
+            raise HTTPException(status_code=413, detail="The image must be 5 MB or smaller.")
+        body.extend(chunk)
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": bytes(body), "more_body": False}
+
+    bounded_request = Request(request.scope, receive)
+    async with bounded_request.form(max_files=1, max_fields=1) as form:
+        crop = form.get("crop")
+        image = form.get("image")
+        if not isinstance(crop, str) or crop not in MODELS or not isinstance(image, UploadFile):
+            raise HTTPException(status_code=422, detail="Choose a supported crop and attach a photo.")
+        contents = await image.read(MAX_IMAGE_BYTES + 1)
     try:
         prepared = preprocess_image(contents)
     except InvalidImageError as error:
         message = str(error)
-        status_code = 413 if len(contents) > 5 * 1024 * 1024 else 400
+        status_code = 413 if len(contents) > MAX_IMAGE_BYTES else 400
         raise HTTPException(status_code=status_code, detail=message) from error
 
     result = await run_in_threadpool(_predict, crop, prepared.batch)

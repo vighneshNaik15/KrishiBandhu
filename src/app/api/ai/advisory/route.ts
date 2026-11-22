@@ -1,17 +1,18 @@
 import { z } from 'zod';
+import { authorizeAi, readAiJson } from '../access';
 import { generateGeminiJson } from '../gemini';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
-  content: z.string(),
+  content: z.string().max(4000),
 });
 
 const RequestBodySchema = z.object({
   question: z.string().min(1).max(2000),
-  language: z.string().optional(),
-  farmerContext: z.string().optional(),
+  language: z.enum(['English', 'Hindi', 'Marathi', 'Konkani']).optional(),
+  farmerContext: z.string().max(1000).optional(),
   conversationHistory: z.array(MessageSchema).max(20).optional(),
 });
 
@@ -24,14 +25,12 @@ const ResponseSchema = z.object({
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: 'Invalid JSON body.' }, { status: 400 });
-  }
+  const input = await readAiJson(req);
+  if ('error' in input) return input.error;
+  const denied = await authorizeAi(req);
+  if (denied) return denied;
 
-  const parsed = RequestBodySchema.safeParse(body);
+  const parsed = RequestBodySchema.safeParse(input.body);
   if (!parsed.success) {
     return Response.json({ error: 'Invalid request.', details: parsed.error.flatten() }, { status: 400 });
   }

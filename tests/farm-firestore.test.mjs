@@ -51,6 +51,14 @@ test('farm service round-trips mapped and legacy farms and enforces farmer owner
         isActive: true, isVerified: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
       })));
 
+    await assert.rejects(getDoc(doc(otherDb, 'users', owner)), { code: 'permission-denied' });
+    await assert.rejects(updateDoc(doc(db, 'users', owner), {
+      role: 'admin', updatedAt: serverTimestamp(),
+    }), { code: 'permission-denied' });
+    await assert.rejects(updateDoc(doc(otherDb, 'users', owner), {
+      name: 'Other user', updatedAt: serverTimestamp(),
+    }), { code: 'permission-denied' });
+
     // These are the owner-scoped queries used by the farmer dashboard.
     for (const [name, field, sort] of [
       ['products', 'farmerId', 'createdAt'],
