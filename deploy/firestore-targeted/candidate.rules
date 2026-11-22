@@ -1,0 +1,527 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function roleIs(role) {
+      return signedIn()
+        && exists(userPath(request.auth.uid))
+        && get(userPath(request.auth.uid)).data.role == role
+        && get(userPath(request.auth.uid)).data.isActive == true;
+    }
+
+    function roleAfter(uid, role) {
+      return existsAfter(userPath(uid))
+        && getAfter(userPath(uid)).data.role == role;
+    }
+
+    function isAdmin() {
+      return roleIs('admin');
+    }
+
+    function isFarmer() {
+      return roleIs('farmer');
+    }
+
+    function isWorker() {
+      return roleIs('worker');
+    }
+
+    function isBuyer() {
+      return roleIs('buyer');
+    }
+
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function validUserCreate(uid) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'uid', 'name', 'email', 'role', 'isActive', 'isVerified',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'name', 'email', 'phone', 'role', 'isActive', 'isVerified',
+          'createdAt', 'updatedAt'
+        ])
+        && data.uid == uid
+        && data.name is string
+        && data.name.size() >= 2
+        && data.email is string
+        && data.email.size() > 2
+        && (!('phone' in data) || data.phone is string)
+        && data.role in ['farmer', 'worker', 'buyer']
+        && data.isActive == true
+        && data.isVerified == false
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validUserSelfUpdate(uid) {
+      return isSelf(uid)
+        && changedOnly(['name', 'phone', 'updatedAt'])
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.isActive == resource.data.isActive
+        && request.resource.data.isVerified == resource.data.isVerified
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validAdminDeactivation() {
+      return isAdmin()
+        && changedOnly(['isActive', 'updatedAt'])
+        && request.resource.data.isActive == false
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validFarmerProfileCreate(uid) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'userId', 'farmerId', 'displayName', 'phone', 'district', 'state',
+          'isVerified', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'farmerId', 'displayName', 'phone', 'district', 'state',
+          'village', 'taluka', 'pincode', 'farmName', 'farmDescription',
+          'farmSizeAcres', 'primaryProducts', 'isVerified', 'isActive',
+          'profileImageUrl', 'farmImageUrl', 'createdAt', 'updatedAt'
+        ])
+        && data.userId == uid
+        && data.farmerId == uid
+        && data.displayName is string
+        && data.phone is string
+        && data.district is string
+        && data.state is string
+        && data.isVerified == false
+        && data.isActive == true
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validFarmerProfileUpdate(uid) {
+      return isSelf(uid)
+        && isFarmer()
+        && changedOnly([
+          'displayName', 'phone', 'village', 'taluka', 'district', 'state',
+          'pincode', 'farmName', 'farmDescription', 'farmSizeAcres',
+          'primaryProducts', 'profileImageUrl', 'farmImageUrl', 'updatedAt'
+        ])
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.farmerId == resource.data.farmerId
+        && request.resource.data.isActive == resource.data.isActive
+        && request.resource.data.isVerified == resource.data.isVerified
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function farmPath(farmId) {
+      return /databases/$(database)/documents/farms/$(farmId);
+    }
+
+    function ownsFarm(data) {
+      return isFarmer()
+        && data.farmerId == request.auth.uid
+        && data.farmerUserId == request.auth.uid;
+    }
+
+    function validFarmBoundary(data) {
+      return !('boundary' in data)
+        || (data.boundary is list
+          && data.boundary.size() >= 3
+          && data.boundary.size() <= 100
+          && data.boundary[0] is latlng
+          && data.areaUnit in ['acres', 'hectares', 'sqm', 'guntha', 'sqft']
+          && data.area is number
+          && data.area > 0);
+    }
+
+    function validFarmMutationId(data) {
+      return !('mutationId' in data)
+        || (data.mutationId is string && data.mutationId.matches('^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'));
+    }
+
+    function validFarmCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'farmerId', 'farmerUserId', 'name', 'district', 'state', 'area',
+          'areaUnit', 'images', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'farmId', 'farmerId', 'farmerUserId', 'name', 'description',
+          'village', 'taluka', 'district', 'state', 'pincode', 'coordinates', 'boundary',
+          'area', 'areaUnit', 'soilType', 'irrigationType', 'images', 'mutationId',
+          'isActive', 'createdAt', 'updatedAt'
+        ])
+        && validFarmMutationId(data)
+        && validFarmBoundary(data)
+        && isFarmer()
+        && data.farmerId == request.auth.uid
+        && data.farmerUserId == request.auth.uid
+        && data.isActive == true
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validFarmUpdate() {
+      return ownsFarm(resource.data)
+        && validFarmBoundary(request.resource.data)
+        && validFarmMutationId(request.resource.data)
+        && (!('mutationId' in request.resource.data)
+          || request.resource.data.mutationId != resource.data.get('mutationId', ''))
+        && changedOnly([
+          'name', 'description', 'village', 'taluka', 'district', 'state',
+          'pincode', 'coordinates', 'boundary', 'area', 'areaUnit', 'soilType',
+          'irrigationType', 'images', 'isActive', 'mutationId', 'updatedAt'
+        ])
+        && request.resource.data.farmerId == resource.data.farmerId
+        && request.resource.data.farmerUserId == resource.data.farmerUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (request.resource.data.isActive == resource.data.isActive
+          || request.resource.data.isActive == false)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function ownsCrop(data) {
+      return isFarmer()
+        && data.farmerUserId == request.auth.uid
+        && data.farmerId == request.auth.uid;
+    }
+
+    function validCropCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'farmId', 'farmerId', 'farmerUserId', 'name', 'category', 'season',
+          'cultivatedArea', 'areaUnit', 'currentGrowthStage', 'isActive',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'cropId', 'farmId', 'farmerId', 'farmerUserId', 'name', 'localName',
+          'category', 'variety', 'season', 'cultivatedArea', 'areaUnit',
+          'currentGrowthStage', 'sowingDate', 'expectedHarvestDate',
+          'actualHarvestDate', 'irrigationDetails', 'fertilizerDetails',
+          'pestManagementDetails', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && isFarmer()
+        && data.farmerId == request.auth.uid
+        && data.farmerUserId == request.auth.uid
+        && exists(farmPath(data.farmId))
+        && get(farmPath(data.farmId)).data.farmerUserId == request.auth.uid
+        && data.isActive == true
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validCropUpdate() {
+      return ownsCrop(resource.data)
+        && changedOnly([
+          'farmId', 'name', 'localName', 'category', 'variety', 'season',
+          'cultivatedArea', 'areaUnit', 'currentGrowthStage', 'sowingDate',
+          'expectedHarvestDate', 'actualHarvestDate', 'irrigationDetails',
+          'fertilizerDetails', 'pestManagementDetails', 'isActive', 'updatedAt'
+        ])
+        && request.resource.data.farmerId == resource.data.farmerId
+        && request.resource.data.farmerUserId == resource.data.farmerUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && exists(farmPath(request.resource.data.farmId))
+        && get(farmPath(request.resource.data.farmId)).data.farmerUserId
+          == request.auth.uid
+        && (request.resource.data.isActive == resource.data.isActive
+          || request.resource.data.isActive == false)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function productOwner(data) {
+      return isFarmer()
+        && (data.farmerId == request.auth.uid
+          || data.farmerUserId == request.auth.uid);
+    }
+
+    function validProductCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'farmerId', 'farmerUserId', 'farmerName', 'farmerDistrict',
+          'farmerState', 'name', 'category', 'description', 'price', 'unit',
+          'minimumOrderQuantity', 'quantityAvailable', 'district', 'state',
+          'images', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'productId', 'farmerId', 'farmerUserId', 'farmerName',
+          'farmerDistrict', 'farmerState', 'name', 'category', 'description',
+          'price', 'unit', 'minimumOrderQuantity', 'quantityAvailable',
+          'district', 'state', 'images', 'tags', 'status', 'createdAt',
+          'updatedAt'
+        ])
+        && isFarmer()
+        && data.farmerId == request.auth.uid
+        && data.farmerUserId == request.auth.uid
+        && data.status == 'active'
+        && data.price is number
+        && data.price > 0
+        && data.minimumOrderQuantity is number
+        && data.minimumOrderQuantity > 0
+        && data.quantityAvailable is number
+        && data.quantityAvailable >= 0
+        && data.images is list
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validProductUpdate() {
+      return productOwner(resource.data)
+        && changedOnly([
+          'farmerName', 'farmerDistrict', 'farmerState', 'name', 'category',
+          'description', 'price', 'unit', 'minimumOrderQuantity',
+          'quantityAvailable', 'district', 'state', 'images', 'tags',
+          'status', 'updatedAt'
+        ])
+        && request.resource.data.farmerId == resource.data.farmerId
+        && request.resource.data.farmerUserId == resource.data.farmerUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ['active', 'inactive', 'out_of_stock']
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.minimumOrderQuantity is number
+        && request.resource.data.minimumOrderQuantity > 0
+        && request.resource.data.quantityAvailable is number
+        && request.resource.data.quantityAvailable >= 0
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function jobPath(jobId) {
+      return /databases/$(database)/documents/jobs/$(jobId);
+    }
+
+    function jobOwner(data) {
+      return isFarmer() && data.farmerUserId == request.auth.uid;
+    }
+
+    function publicJob(data) {
+      return data.status in ['published', 'applications_open'];
+    }
+
+    function validJobStatus(status) {
+      return status in [
+        'draft', 'published', 'applications_open', 'worker_selected',
+        'scheduled', 'in_progress', 'completed', 'cancelled', 'closed'
+      ];
+    }
+
+    function validJobCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'farmerId', 'farmerUserId', 'farmerName', 'title', 'description',
+          'category', 'workersRequired', 'district', 'state', 'startDate',
+          'paymentType', 'status', 'selectedWorkerIds', 'statusHistory',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'jobId', 'farmerId', 'farmerUserId', 'farmerName', 'farmId',
+          'farmName', 'title', 'description', 'category', 'workersRequired',
+          'district', 'state', 'village', 'taluka', 'startDate', 'endDate',
+          'durationDays', 'paymentType', 'paymentAmount', 'paymentNotes',
+          'maxApplicants', 'status', 'selectedWorkerIds', 'statusHistory',
+          'createdAt', 'updatedAt'
+        ])
+        && isFarmer()
+        && data.farmerId == request.auth.uid
+        && data.farmerUserId == request.auth.uid
+        && validJobStatus(data.status)
+        && data.status in ['draft', 'published', 'applications_open']
+        && data.workersRequired is number
+        && data.workersRequired > 0
+        && data.selectedWorkerIds is list
+        && data.selectedWorkerIds.size() == 0
+        && data.statusHistory is list
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validJobUpdate() {
+      return jobOwner(resource.data)
+        && changedOnly([
+          'farmerName', 'farmId', 'farmName', 'title', 'description',
+          'category', 'workersRequired', 'district', 'state', 'village',
+          'taluka', 'startDate', 'endDate', 'durationDays', 'paymentType',
+          'paymentAmount', 'paymentNotes', 'maxApplicants', 'status',
+          'selectedWorkerIds', 'statusHistory', 'updatedAt'
+        ])
+        && request.resource.data.farmerId == resource.data.farmerId
+        && request.resource.data.farmerUserId == resource.data.farmerUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validJobStatus(request.resource.data.status)
+        && request.resource.data.workersRequired is number
+        && request.resource.data.workersRequired > 0
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function applicationJobMatches(data) {
+      return exists(jobPath(data.jobId))
+        && get(jobPath(data.jobId)).data.farmerId == data.farmerId
+        && get(jobPath(data.jobId)).data.farmerUserId == data.farmerId;
+    }
+
+    function validApplicationCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'jobId', 'farmerId', 'workerId', 'workerUserId', 'workerName',
+          'status', 'appliedAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'applicationId', 'jobId', 'farmerId', 'workerId', 'workerUserId',
+          'workerName', 'workerPhone', 'workerSkills', 'coverNote',
+          'expectedPayment', 'status', 'appliedAt', 'updatedAt'
+        ])
+        && isWorker()
+        && data.workerId == request.auth.uid
+        && data.workerUserId == request.auth.uid
+        && data.status == 'pending'
+        && applicationJobMatches(data)
+        && get(jobPath(data.jobId)).data.status
+          in ['published', 'applications_open']
+        && data.appliedAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function canUpdateApplication() {
+      return changedOnly(['status', 'updatedAt'])
+        && request.resource.data.jobId == resource.data.jobId
+        && request.resource.data.farmerId == resource.data.farmerId
+        && request.resource.data.workerId == resource.data.workerId
+        && request.resource.data.workerUserId == resource.data.workerUserId
+        && request.resource.data.updatedAt == request.time
+        && (
+          (isWorker()
+            && resource.data.workerId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'withdrawn')
+          ||
+          (isFarmer()
+            && resource.data.farmerId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'rejected'])
+        );
+    }
+
+    function validOrderTransition(from, to) {
+      return (from == 'pending' && to in ['accepted', 'rejected', 'cancelled'])
+        || (from == 'accepted' && to in ['packed', 'cancelled'])
+        || (from == 'packed' && to in ['dispatched', 'cancelled'])
+        || (from == 'dispatched' && to == 'delivered');
+    }
+
+    function validOrderHistoryAppend() {
+      let oldHistory = resource.data.statusHistory;
+      let newHistory = request.resource.data.statusHistory;
+      let newEntry = newHistory[oldHistory.size()];
+      return oldHistory is list
+        && newHistory is list
+        && newHistory.size() == oldHistory.size() + 1
+        && oldHistory.concat([newEntry]) == newHistory
+        && newEntry is map
+        && newEntry.keys().hasAll(['status', 'changedAt', 'changedBy'])
+        && newEntry.keys().hasOnly(['status', 'changedAt', 'changedBy', 'note'])
+        && newEntry.status == request.resource.data.status
+        && newEntry.changedAt == request.time
+        && newEntry.changedBy == request.auth.uid
+        && (!('note' in newEntry) || newEntry.note is string);
+    }
+
+    match /users/{uid} {
+      allow create: if isSelf(uid) && validUserCreate(uid);
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow update: if validUserSelfUpdate(uid) || validAdminDeactivation();
+      allow delete: if false;
+    }
+
+    match /farmerProfiles/{uid} {
+      allow get: if isSelf(uid);
+      allow list: if false;
+      allow create: if isSelf(uid)
+        && roleAfter(uid, 'farmer')
+        && validFarmerProfileCreate(uid);
+      allow update: if validFarmerProfileUpdate(uid);
+      allow delete: if false;
+    }
+
+    match /farms/{farmId} {
+      allow get, list: if ownsFarm(resource.data);
+      allow create: if validFarmCreate();
+      allow update: if validFarmUpdate();
+      allow delete: if false;
+    }
+
+    match /crops/{cropId} {
+      allow get, list: if ownsCrop(resource.data);
+      allow create: if validCropCreate();
+      allow update: if validCropUpdate();
+      allow delete: if false;
+    }
+
+    match /products/{productId} {
+      allow get, list: if resource.data.status == 'active'
+        || productOwner(resource.data);
+      allow create: if validProductCreate();
+      allow update: if validProductUpdate();
+      allow delete: if false;
+    }
+
+    match /jobs/{jobId} {
+      allow get, list: if publicJob(resource.data) || jobOwner(resource.data);
+      allow create: if validJobCreate();
+      allow update: if validJobUpdate();
+      allow delete: if false;
+    }
+
+    match /jobApplications/{applicationId} {
+      allow get, list: if (isWorker()
+          && resource.data.workerId == request.auth.uid)
+        || (isFarmer()
+          && resource.data.farmerId == request.auth.uid);
+      allow create: if validApplicationCreate();
+      allow update: if canUpdateApplication();
+      allow delete: if false;
+    }
+
+    match /orders/{orderId} {
+      allow get, list: if (isBuyer()
+          && resource.data.buyerId == request.auth.uid)
+        || (isFarmer()
+          && resource.data.farmerId == request.auth.uid);
+
+      // Order creation needs a trusted stock-reservation transaction first.
+      allow create: if false;
+      allow update: if isFarmer()
+        && resource.data.farmerId == request.auth.uid
+        && changedOnly(['status', 'statusHistory', 'updatedAt'])
+        && validOrderTransition(
+          resource.data.status,
+          request.resource.data.status
+        )
+        && request.resource.data.updatedAt == request.time
+        && validOrderHistoryAppend();
+      allow delete: if false;
+    }
+
+    match /cropDiseaseAnalyses/{assessmentId} {
+      allow get, list: if isFarmer()
+        && resource.data.farmerUid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // Unused collections, including transactions, remain denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

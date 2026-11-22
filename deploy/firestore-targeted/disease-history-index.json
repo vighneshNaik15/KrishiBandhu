@@ -1,0 +1,13 @@
+{
+  "queryScope": "COLLECTION",
+  "fields": [
+    {
+      "fieldPath": "farmerUid",
+      "order": "ASCENDING"
+    },
+    {
+      "fieldPath": "assessedAt",
+      "order": "DESCENDING"
+    }
+  ]
+}
