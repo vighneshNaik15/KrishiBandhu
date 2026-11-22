@@ -40,7 +40,7 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
       {ordersOnly ? <h1 className="text-2xl font-bold font-heading">My Orders</h1> : <>
       <div>
         <h1 className="text-2xl font-bold font-heading text-neutral-900">
-          Welcome, {userProfile?.name?.split(' ')[0]} ðŸ‘‹
+          Welcome, {userProfile?.name?.split(' ')[0]} 👋
         </h1>
         <p className="text-sm text-neutral-500 mt-1">Browse fresh Konkan products and manage your orders.</p>
       </div>
@@ -48,17 +48,17 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
       {error && <Alert variant="error">{error}</Alert>}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Orders" value={loading ? 'â€”' : orders.length} icon={<ShoppingBag className="w-5 h-5" />} accentColor="blue" />
-        <StatCard label="Active Orders" value={loading ? 'â€”' : activeOrders.length} icon={<Package className="w-5 h-5" />} accentColor="amber" />
-        <StatCard label="Pending" value={loading ? 'â€”' : pendingOrders.length} icon={<Package className="w-5 h-5" />} accentColor="green" />
-        <StatCard label="Reviews Given" value="â€”" icon={<Star className="w-5 h-5" />} accentColor="green" />
+        <StatCard label="Total Orders" value={loading ? '—' : orders.length} icon={<ShoppingBag className="w-5 h-5" />} accentColor="blue" />
+        <StatCard label="Active Orders" value={loading ? '—' : activeOrders.length} icon={<Package className="w-5 h-5" />} accentColor="amber" />
+        <StatCard label="Pending" value={loading ? '—' : pendingOrders.length} icon={<Package className="w-5 h-5" />} accentColor="green" />
+        <StatCard label="Reviews Given" value="—" icon={<Star className="w-5 h-5" />} accentColor="green" />
       </div>
 
       <Card>
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <div className="flex-1">
             <h2 className="font-semibold text-neutral-900">Browse Konkan Products</h2>
-            <p className="text-sm text-neutral-500 mt-1">Coconut, cashew, kokum, spices and more â€” directly from farmers.</p>
+            <p className="text-sm text-neutral-500 mt-1">Coconut, cashew, kokum, spices and more — directly from farmers.</p>
           </div>
           <Link href={ROUTES.BUYER_MARKETPLACE}>
             <Button leftIcon={<Search className="w-4 h-4" />}>Browse Marketplace</Button>
@@ -87,7 +87,7 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
               <div key={order.orderId} className="py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-neutral-800 truncate">{order.productName}</p>
-                  <p className="text-xs text-neutral-500">{order.farmerName} Â· {formatDate(order.createdAt)}</p>
+                  <p className="text-xs text-neutral-500">{order.farmerName} · {formatDate(order.createdAt)}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold">{formatPrice(order.totalAmount)}</p>

@@ -17,6 +17,7 @@ import { Card } from '@/components/ui/Card';
 import { ROUTES, KONKAN_DISTRICTS, INDIAN_STATES } from '@/lib/constants';
 import { JOB_CATEGORY_LABELS, PAYMENT_TYPE_LABELS, type JobCategory, type PaymentType } from '@/models/job';
 import type { Farm } from '@/models/farm';
+import { getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
 
 const schema = z.object({
   title: z.string().min(5, 'Job title must be at least 5 characters'),
@@ -31,9 +32,12 @@ const schema = z.object({
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().optional(),
   paymentType: z.string().min(1, 'Please select payment type'),
-  paymentAmount: z.coerce.number().positive().optional().or(z.literal('')),
+  paymentAmount: z.literal('').or(z.coerce.number().positive('Enter an amount greater than zero')).optional(),
   paymentNotes: z.string().optional(),
   publishNow: z.boolean().default(true),
+}).refine(({ startDate, endDate }) => !endDate || endDate >= startDate, {
+  path: ['endDate'],
+  message: 'End date must be on or after the start date',
 });
 
 type FormInput = z.input<typeof schema>;
@@ -65,7 +69,10 @@ export default function NewJobPage() {
   const districtOptions = konkanDistricts?.map(d => ({ value: d, label: d })) ?? [];
 
   const onSubmit = async (data: FormData) => {
-    if (!userProfile) return;
+    if (!userProfile) {
+      setError('Your session is unavailable. Sign in again to post a job.');
+      return;
+    }
     setError(null);
     try {
       const selectedFarm = farms.find(f => f.farmId === data.farmId);
@@ -73,7 +80,7 @@ export default function NewJobPage() {
         farmerUserId: userProfile.uid,
         farmerId: userProfile.uid,
         farmerName: userProfile.name,
-        farmId: data.farmId,
+        farmId: selectedFarm?.farmId,
         farmName: selectedFarm?.name,
         title: data.title,
         description: data.description,
@@ -86,14 +93,13 @@ export default function NewJobPage() {
         startDate: Timestamp.fromDate(new Date(data.startDate)),
         endDate: data.endDate ? Timestamp.fromDate(new Date(data.endDate)) : undefined,
         paymentType: data.paymentType as PaymentType,
-        paymentAmount: data.paymentAmount ? Number(data.paymentAmount) : undefined,
+        paymentAmount: data.paymentAmount || undefined,
         paymentNotes: data.paymentNotes,
         status: data.publishNow ? 'published' : 'draft',
-        maxApplicants: undefined,
       });
       router.push(`${ROUTES.FARMER_JOBS}/${jobId}`);
-    } catch {
-      setError('Failed to post job. Please try again.');
+    } catch (postError: unknown) {
+      setError(getFirebaseOperationErrorMessage(postError, data.publishNow ? 'Publishing the job' : 'Saving the draft'));
     }
   };
 
@@ -104,9 +110,7 @@ export default function NewJobPage() {
         <p className="text-sm text-neutral-500 mt-1">Find skilled agricultural workers near you.</p>
       </div>
 
-      {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit, () => setError(null))} className="space-y-6">
         <Card>
           <h2 className="font-semibold text-neutral-800 mb-4">Job Details</h2>
           <div className="space-y-4">
@@ -145,11 +149,11 @@ export default function NewJobPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input label="Start date" type="date" required error={errors.startDate?.message} {...register('startDate')} />
-              <Input label="End date (optional)" type="date" {...register('endDate')} />
+              <Input label="End date (optional)" type="date" min={watch('startDate') || undefined} error={errors.endDate?.message} {...register('endDate')} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Select label="Payment type" required options={paymentOptions} error={errors.paymentType?.message} {...register('paymentType')} />
-              <Input label="Amount (₹)" type="number" placeholder="e.g. 500" {...register('paymentAmount')} />
+              <Input label="Amount (₹)" type="number" step="any" placeholder="e.g. 500" error={errors.paymentAmount?.message} {...register('paymentAmount')} />
             </div>
             <Input label="Payment notes" placeholder="e.g. Paid at end of day, food provided" {...register('paymentNotes')} />
           </div>
@@ -159,6 +163,8 @@ export default function NewJobPage() {
           <input type="checkbox" id="publishNow" {...register('publishNow')} className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500" defaultChecked />
           <label htmlFor="publishNow" className="text-sm text-neutral-700">Publish immediately (workers can apply right away)</label>
         </div>
+
+        {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
 
         <div className="flex gap-3">
           <Button type="button" variant="secondary" onClick={() => router.push(ROUTES.FARMER_JOBS)}>Cancel</Button>

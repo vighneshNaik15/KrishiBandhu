@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,23 +10,25 @@ import { Card, EmptyState } from '@/components/ui/Card';
 import { Input, Select, Textarea } from '@/components/ui/Input';
 import { useAuth } from '@/features/auth/AuthContext';
 import { JOB_CATEGORY_LABELS, type JobCategory } from '@/models/job';
-import { GOA_SERVICE_DISTRICTS, SERVICE_CHARGE_UNITS, type ServiceChargeUnit, type ServiceListing } from '@/models/serviceListing';
+import { GOA_SERVICE_DISTRICTS, SERVICE_CHARGE_UNITS, type ServiceListing } from '@/models/serviceListing';
 import { serviceListingService } from '@/services/serviceListingService';
-import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
+import { getFirebaseLoadErrorMessage, getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
 
 const chargeUnitValues = ['per_hour', 'per_day', 'per_job', 'negotiable'] as const;
 const schema = z.object({
   district: z.enum(['North Goa', 'South Goa']),
   taluka: z.string().trim().min(2, 'Enter your taluka.').max(80),
   village: z.string().trim().max(80).optional(),
-  experienceYears: z.coerce.number().int().min(0).max(80),
-  skills: z.string().trim().min(3, 'Add at least one skill.').max(500),
+  experienceYears: z.number({ error: 'Enter your years of experience.' }).int('Enter a whole number.').min(0).max(80),
+  skills: z.string().trim().min(3, 'Add at least one skill.').max(500)
+    .refine((value) => parseList(value).length > 0, 'Add at least one skill.'),
   equipment: z.string().trim().max(500).optional(),
   availability: z.string().trim().min(3, 'Describe when you are available.').max(300),
   description: z.string().trim().min(20, 'Add at least 20 characters about your service.').max(1000),
   chargeAmount: z.preprocess(
     (value) => value === '' || value === undefined ? undefined : Number(value),
-    z.number().positive().max(10000000).optional()
+    z.number({ error: 'Enter a valid charge.' }).min(1, 'Enter at least ₹1.').max(10000000)
+      .multipleOf(0.01, 'Use up to two decimal places.').optional()
   ),
   chargeUnit: z.enum(chargeUnitValues),
   serviceCategories: z.array(z.string()).min(1, 'Select at least one service.'),
@@ -54,12 +56,15 @@ function statusLabel(status: ServiceListing['verificationStatus']): string {
 
 export default function WorkerServicesPage() {
   const { userProfile } = useAuth();
+  const providerId = userProfile?.uid;
   const [listings, setListings] = useState<ServiceListing[]>([]);
   const [loadingListings, setLoadingListings] = useState(true);
+  const [listingsVersion, setListingsVersion] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormValues, unknown, ValidFormValues>({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting, submitCount } } = useForm<FormValues, unknown, ValidFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       district: 'North Goa',
@@ -68,35 +73,36 @@ export default function WorkerServicesPage() {
       serviceCategories: [],
     },
   });
-  const selectedCategories = watch('serviceCategories') ?? [];
-
-  const loadListings = useCallback(async () => {
-    if (!userProfile?.uid) return;
-    setLoadError(null);
-    try {
-      setListings(await serviceListingService.getByProvider(userProfile.uid));
-    } catch (loadError: unknown) {
-      setLoadError(getFirebaseLoadErrorMessage(loadError, 'Your service listings'));
-    } finally {
-      setLoadingListings(false);
-    }
-  }, [userProfile?.uid]);
 
   useEffect(() => {
-    void loadListings();
-  }, [loadListings]);
+    if (!providerId) return;
+    let cancelled = false;
+    serviceListingService.getByProvider(providerId)
+      .then((result) => {
+        if (cancelled) return;
+        setListings(result);
+        setLoadError(null);
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) setLoadError(getFirebaseLoadErrorMessage(loadError, 'Your service listings'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingListings(false);
+      });
+    return () => { cancelled = true; };
+  }, [providerId, listingsVersion]);
 
   const onSubmit = async (data: ValidFormValues) => {
     if (!userProfile) {
-      setLoadError('Your account profile is not ready. Refresh the page and try again.');
+      setSubmitError('Your account profile is not ready. Refresh the page and try again.');
       return;
     }
     const categories = data.serviceCategories.filter(isJobCategory);
     if (categories.length !== data.serviceCategories.length) {
-      setLoadError('One or more selected services are invalid. Please choose from the list.');
+      setSubmitError('One or more selected services are invalid. Please choose from the list.');
       return;
     }
-    setLoadError(null);
+    setSubmitError(null);
     setSuccess(null);
     try {
       await serviceListingService.create({
@@ -112,7 +118,7 @@ export default function WorkerServicesPage() {
         ...(data.village ? { village: data.village } : {}),
         availability: data.availability,
         ...(data.chargeAmount !== undefined ? { chargeAmount: data.chargeAmount } : {}),
-        chargeUnit: data.chargeUnit as ServiceChargeUnit,
+        chargeUnit: data.chargeUnit,
       });
       reset({
         district: data.district,
@@ -121,9 +127,9 @@ export default function WorkerServicesPage() {
         serviceCategories: [],
       });
       setSuccess('Your listing was submitted for admin review. It will not appear in public search until approved.');
-      await loadListings();
-    } catch {
-      setLoadError('Could not submit your service listing. No listing was confirmed; check your connection and try again.');
+      setListingsVersion((version) => version + 1);
+    } catch (saveError: unknown) {
+      setSubmitError(getFirebaseOperationErrorMessage(saveError, 'Submitting your service listing'));
     }
   };
 
@@ -136,12 +142,12 @@ export default function WorkerServicesPage() {
         </p>
       </header>
 
-      {loadError && <Alert variant="error" onDismiss={() => setLoadError(null)}>{loadError}</Alert>}
-      {success && <Alert variant="success" onDismiss={() => setSuccess(null)}>{success}</Alert>}
-
       <Card>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <fieldset>
+        <form noValidate onSubmit={handleSubmit(onSubmit, () => {
+          setSubmitError(null);
+          setSuccess(null);
+        })} className="space-y-5">
+          <fieldset aria-describedby={errors.serviceCategories ? 'service-categories-error' : undefined}>
             <legend className="mb-2 text-sm font-medium text-neutral-700">Services you offer *</legend>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {categoryOptions.map(([value, label]) => (
@@ -151,35 +157,41 @@ export default function WorkerServicesPage() {
                 </label>
               ))}
             </div>
-            {errors.serviceCategories?.message && <p className="mt-1 text-sm text-red-600">{errors.serviceCategories.message}</p>}
+            {errors.serviceCategories?.message && <p id="service-categories-error" className="mt-1 text-sm text-red-600">{errors.serviceCategories.message}</p>}
           </fieldset>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Select label="District" required options={districtOptions} error={errors.district?.message} {...register('district')} />
             <Input label="Taluka" required placeholder="Enter your taluka" error={errors.taluka?.message} {...register('taluka')} />
             <Input label="Village (optional)" placeholder="Enter your village" error={errors.village?.message} {...register('village')} />
-            <Input label="Years of experience" type="number" min={0} max={80} required error={errors.experienceYears?.message} {...register('experienceYears')} />
+            <Input label="Years of experience" type="number" min={0} max={80} required error={errors.experienceYears?.message} {...register('experienceYears', { valueAsNumber: true })} />
           </div>
 
           <Input label="Skills (comma-separated)" required placeholder="e.g. coconut climbing, safe harvesting" error={errors.skills?.message} {...register('skills')} />
           <Input label="Equipment or machinery (optional)" placeholder="e.g. ladder, tractor model" error={errors.equipment?.message} {...register('equipment')} />
           <Input label="Availability" required placeholder="e.g. Weekdays, advance booking required" error={errors.availability?.message} {...register('availability')} />
-          <Textarea label="Service description" required rows={4} error={errors.description?.message} {...register('description')} />
+          <Textarea label="Service description" required rows={4} hint="Describe the work you offer in at least 20 characters." error={errors.description?.message} {...register('description')} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Indicative charge (optional)" type="number" min={1} step="0.01" hint="This is your stated price, not a platform guarantee." error={errors.chargeAmount?.message} {...register('chargeAmount')} />
             <Select label="Charge basis" required options={chargeOptions} error={errors.chargeUnit?.message} {...register('chargeUnit')} />
           </div>
 
+          {submitCount > 0 && Object.keys(errors).length > 0 && (
+            <Alert variant="error">Check the highlighted fields before submitting.</Alert>
+          )}
+          {submitError && <Alert variant="error">{submitError}</Alert>}
+          {success && <Alert variant="success">{success}</Alert>}
           <Button type="submit" isLoading={isSubmitting}>Submit service listing</Button>
         </form>
       </Card>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-neutral-900">My listings</h2>
+        {loadError && <Alert variant="error">{loadError}</Alert>}
         {loadingListings ? (
           <div className="h-24 animate-pulse rounded-xl bg-neutral-100" aria-label="Loading service listings" />
-        ) : listings.length === 0 ? (
+        ) : loadError && listings.length === 0 ? null : listings.length === 0 ? (
           <Card><EmptyState title="No service listings yet" description="Your submitted listings will appear here with their review status." /></Card>
         ) : (
           listings.map((listing) => (

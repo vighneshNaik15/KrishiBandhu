@@ -39,7 +39,7 @@ export const jobService = {
 
   async create(data: Omit<Job, 'jobId' | 'createdAt' | 'updatedAt' | 'selectedWorkerIds' | 'statusHistory'>): Promise<string> {
     const ref = await addDoc(collection(db, COLLECTIONS.JOBS), {
-      ...data,
+      ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
       selectedWorkerIds: [],
       statusHistory: [{ status: data.status, changedAt: Timestamp.now() }],
       createdAt: serverTimestamp(),

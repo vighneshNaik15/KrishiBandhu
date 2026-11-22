@@ -40,7 +40,7 @@ export const cropService = {
 
   async create(data: CreateCropData): Promise<string> {
     const ref = await addDoc(collection(db, COLLECTIONS.CROPS), {
-      ...data,
+      ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
       sowingDate: data.sowingDate ? Timestamp.fromDate(data.sowingDate) : null,
       expectedHarvestDate: data.expectedHarvestDate ? Timestamp.fromDate(data.expectedHarvestDate) : null,
       actualHarvestDate: null,

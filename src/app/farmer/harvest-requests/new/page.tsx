@@ -14,6 +14,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { KONKAN_DISTRICTS, ROUTES } from '@/lib/constants';
 import { JOB_CATEGORY_LABELS, PAYMENT_TYPE_LABELS, type JobCategory } from '@/models/job';
 import { jobService } from '@/services/jobService';
+import { getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
 
 const schema = z.object({
   category: z.string().min(1, 'Select a service.'),
@@ -101,8 +102,8 @@ export default function NewHarvestRequestPage() {
         status: 'published',
       });
       router.push(`${ROUTES.FARMER_JOBS}/${jobId}`);
-    } catch {
-      setError('The request could not be published. Check your connection and try again.');
+    } catch (publishError: unknown) {
+      setError(getFirebaseOperationErrorMessage(publishError, 'Publishing the harvest request'));
     }
   };
 

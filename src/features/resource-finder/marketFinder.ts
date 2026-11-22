@@ -6,6 +6,7 @@ export interface MarketRecord {
   marketName: string;
   commodityGroup: string | null;
   variety: string | null;
+  sourceUrl: string | null;
 }
 
 export interface MarketListing {
@@ -15,6 +16,7 @@ export interface MarketListing {
   marketName: string;
   commodityGroups: string[];
   varieties: string[];
+  sourceUrl: string | null;
 }
 
 export interface MarketFilters {
@@ -31,6 +33,7 @@ export function toMarketRecords(rows: CsvRecord[]): MarketRecord[] {
     marketName: requiredCell(row, 'Market Name', index + 2),
     commodityGroup: optionalCell(row, 'Group'),
     variety: optionalCell(row, 'Variety'),
+    sourceUrl: optionalCell(row, 'Source URL'),
   }));
 }
 
@@ -76,6 +79,7 @@ export function filterMarkets(records: MarketRecord[], filters: MarketFilters): 
     marketName: string;
     commodityGroups: Set<string>;
     varieties: Set<string>;
+    sourceUrl: string | null;
   }>();
 
   for (const record of matches) {
@@ -88,11 +92,13 @@ export function filterMarkets(records: MarketRecord[], filters: MarketFilters): 
         marketName: record.marketName,
         commodityGroups: new Set<string>(),
         varieties: new Set<string>(),
+        sourceUrl: record.sourceUrl,
       };
       markets.set(id, market);
     }
     if (record.commodityGroup) market.commodityGroups.add(record.commodityGroup);
     if (record.variety) market.varieties.add(record.variety);
+    market.sourceUrl ??= record.sourceUrl;
   }
 
   return [...markets.entries()]
@@ -103,6 +109,7 @@ export function filterMarkets(records: MarketRecord[], filters: MarketFilters): 
       marketName: market.marketName,
       commodityGroups: [...market.commodityGroups].sort(collate),
       varieties: [...market.varieties].sort(collate),
+      sourceUrl: market.sourceUrl,
     }))
     .sort((left, right) => collate(left.marketName, right.marketName));
 }

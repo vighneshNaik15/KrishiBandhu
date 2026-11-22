@@ -29,6 +29,7 @@ test('farm service round-trips mapped and legacy farms and enforces farmer owner
     },
   });
   const { default: ownerApp, db } = await import('../src/lib/firebase/config.ts');
+  const { cropService } = await import('../src/services/cropService.ts');
   const { jobService } = await import('../src/services/jobService.ts');
   const { productService } = await import('../src/services/productService.ts');
   const { farmService, commitFarmMutation } = await import('../src/services/farmService.ts');
@@ -191,13 +192,16 @@ test('farm service round-trips mapped and legacy farms and enforces farmer owner
     assert.equal((await readWorkspace(otherCache)).pending[0].failure, 'blocked');
     assert.equal((await readWorkspace(cache)).farms.some(farm => farm.farmerUserId === outsider), false);
 
-    const crop = doc(db, 'crops', randomUUID());
-    await setDoc(crop, {
-      ...ownerFields, farmId: legacyId, name: 'Rice', category: 'cereal', season: 'kharif',
-      cultivatedArea: 1, areaUnit: 'acres', currentGrowthStage: 'sown', isActive: true,
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    const cropId = await cropService.create({
+      farmId: legacyId, ...ownerFields, name: 'Coconut', category: 'plantation',
+      season: 'perennial', currentGrowthStage: 'sowing', cultivatedArea: 1.5, areaUnit: 'acres',
+      localName: undefined, irrigationDetails: 'Drip irrigation',
     });
-    assert.equal((await getDoc(crop)).data().farmId, legacyId);
+    const crop = await cropService.getById(cropId);
+    assert.equal(crop.farmId, legacyId);
+    assert.equal(crop.cultivatedArea, 1.5);
+    assert.equal(crop.sowingDate, null);
+    assert.equal(crop.irrigationDetails, 'Drip irrigation');
     const assessmentId = randomUUID();
     const assessment = doc(db, 'cropDiseaseAnalyses', assessmentId);
     await runTransaction(db, async transaction => {

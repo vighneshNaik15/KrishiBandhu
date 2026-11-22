@@ -1,4 +1,4 @@
-State Name,District Name,Market Name,Variety,Group
+State Name,District Name,Market Name,Variety,Group,Source URL
 Maharashtra,Ahmednagar,Ahmednagar,Other,Vegetables
 Maharashtra,Ahmednagar,Ahmednagar,Red,Vegetables
 Maharashtra,Ahmednagar,Ahmednagar,Red,Vegetables
@@ -1791,3 +1791,11 @@ Maharashtra,Sholapur,Solapur,Red,Vegetables
 Maharashtra,Sholapur,Solapur,Red,Vegetables
 Maharashtra,Sholapur,Solapur,Red,Vegetables
 Maharashtra,Sholapur,Solapur,Red,Vegetables
+Goa,North Goa,Mapusa Sub Market Yard,,,https://gsamb.in/market-yards/
+Goa,North Goa,Pernem Sub Market Yard,,,https://gsamb.in/market-yards/
+Goa,North Goa,Sanquelim Sub Market Yard,,,https://gsamb.in/market-yards/
+Goa,North Goa,Valpoi Sub Market Yard,,,https://gsamb.in/market-yards/
+Goa,South Goa,Margao Main Yard,,,https://gsamb.in/market-yards/
+Goa,South Goa,Ponda Sub Market Yard,,,https://gsamb.in/market-yards/
+Goa,Kushavati,Canacona Sub Market Yard,,,https://gsamb.in/market-yards/
+Goa,Kushavati,Curchorem Sub Market Yard,,,https://gsamb.in/market-yards/

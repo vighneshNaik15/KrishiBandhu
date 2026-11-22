@@ -28,7 +28,7 @@ export default function MarketFinderPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchCsvRecords('/data/market-finder.csv', controller.signal)
+    fetchCsvRecords('/data/market-finder.csv?v=2', controller.signal)
       .then((rows) => setRecords(toMarketRecords(rows)))
       .catch((loadError: unknown) => {
         if (!controller.signal.aborted) {
@@ -111,7 +111,7 @@ export default function MarketFinderPage() {
               ...facets.commodityGroups.map((value) => ({ value, label: value })),
             ]}
             value={commodityGroup}
-            disabled={!district || Boolean(error)}
+            disabled={facets.commodityGroups.length === 0 || Boolean(error)}
             onChange={(event) => {
               setCommodityGroup(event.target.value);
               setVariety('');
@@ -124,7 +124,7 @@ export default function MarketFinderPage() {
               ...facets.varieties.map((value) => ({ value, label: value })),
             ]}
             value={variety}
-            disabled={!district || Boolean(error)}
+            disabled={facets.varieties.length === 0 || Boolean(error)}
             onChange={(event) => setVariety(event.target.value)}
           />
         </div>
@@ -144,6 +144,11 @@ export default function MarketFinderPage() {
               {markets.length} {markets.length === 1 ? 'market' : 'markets'}
             </p>
           </div>
+          {facets.commodityGroups.length === 0 && facets.varieties.length === 0 && markets.length > 0 && (
+            <p className="mb-4 text-sm text-neutral-600">
+              Commodity and variety data is unavailable for this district.
+            </p>
+          )}
           {markets.length === 0 ? (
             <Card>
               <EmptyState
@@ -176,6 +181,11 @@ export default function MarketFinderPage() {
                         </p>
                         <p className="mt-1 text-sm text-neutral-800">{market.varieties.join(', ')}</p>
                       </div>
+                    )}
+                    {market.sourceUrl && (
+                      <a className="mt-4 inline-block text-sm font-medium text-primary-700 underline" href={market.sourceUrl}>
+                        Official market yard directory
+                      </a>
                     )}
                   </Card>
                 ))}

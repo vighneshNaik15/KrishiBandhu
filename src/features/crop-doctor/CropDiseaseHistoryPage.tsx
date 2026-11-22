@@ -8,6 +8,7 @@ import { Card, EmptyState } from '@/components/ui/Card';
 import { useAuth } from '@/features/auth/AuthContext';
 import type { CropDiseaseAssessment } from '@/models/cropDiseaseAssessment';
 import { cropDiseaseService } from '@/services/cropDiseaseService';
+import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 import { formatDateTime } from '@/utils/formatters';
 import { ROUTES } from '@/lib/constants';
 
@@ -70,9 +71,7 @@ export function CropDiseaseHistoryPage() {
             farmerUid,
             assessments: [],
             loading: false,
-            error: loadError instanceof Error
-              ? loadError.message
-              : 'Assessment history could not be loaded.',
+            error: getFirebaseLoadErrorMessage(loadError, 'Saved assessment history'),
           });
         }
       });
@@ -99,8 +98,9 @@ export function CropDiseaseHistoryPage() {
         </div>
       </header>
 
-      {error && <Alert variant="error" title="History could not be loaded">{error}</Alert>}
-      {loading ? (
+      {error ? (
+        <Alert variant="error" title="History could not be loaded">{error}</Alert>
+      ) : loading ? (
         <Card><p className="text-sm text-neutral-500">Loading your saved reports…</p></Card>
       ) : assessments.length === 0 ? (
         <Card>

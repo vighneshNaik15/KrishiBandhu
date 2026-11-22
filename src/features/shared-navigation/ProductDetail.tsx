@@ -3,11 +3,9 @@
 import { ProductPhoto } from '@/features/product-media/ProductPhoto';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Package, MapPin, User, ShoppingCart } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Package, MapPin, User } from 'lucide-react';
 import { productService } from '@/services/productService';
-import { useAuth } from '@/features/auth/AuthContext';
-import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { PRODUCT_CATEGORIES } from '@/models/product';
@@ -18,8 +16,6 @@ import type { Product } from '@/models/product';
 
 export default function ProductDetailPage({ marketplace = ROUTES.MARKETPLACE }: { marketplace?: string } = {}) {
   const params = useParams();
-  const router = useRouter();
-  const { userProfile } = useAuth();
   const productId = params.productId as string;
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -114,17 +110,7 @@ export default function ProductDetailPage({ marketplace = ROUTES.MARKETPLACE }: 
           </div>
 
           {product.status === 'active' ? (
-            userProfile?.role === 'buyer' ? (
-              <Button fullWidth size="lg" leftIcon={<ShoppingCart className="w-5 h-5"/>}>
-                Contact Farmer to Order
-              </Button>
-            ) : !userProfile ? (
-              <Button fullWidth size="lg" onClick={() => router.push(ROUTES.LOGIN)}>
-                Sign in to Order
-              </Button>
-            ) : (
-              <Alert variant="info">Only buyers can place orders. Register as a buyer to purchase.</Alert>
-            )
+            <Alert variant="info">Online order requests are currently unavailable.</Alert>
           ) : (
             <Alert variant="warning">This product is currently unavailable.</Alert>
           )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +14,7 @@ import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
+import { getFirebaseLoadErrorMessage, getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
 import { ROUTES } from '@/lib/constants';
 import {
   CROP_CATEGORY_LABELS, CROP_GROWTH_STAGE_LABELS, CROP_SEASON_LABELS,
@@ -52,16 +54,23 @@ export default function NewCropPage() {
   const searchParams = useSearchParams();
   const preselectedFarmId = searchParams.get('farmId') ?? '';
 
-  const [farms, setFarms] = useState<Farm[]>([]);
+  const farmerId = userProfile?.uid;
+  const [farmResult, setFarmResult] = useState<{ uid: string; farms: Farm[]; error?: string }>();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userProfile?.uid) {
-      farmService.getByFarmer(userProfile.uid).then(setFarms).catch(console.error);
-    }
-  }, [userProfile?.uid]);
+    if (!farmerId) return;
+    let active = true;
+    farmService.getByFarmer(farmerId).then(farms => {
+      if (active) setFarmResult({ uid: farmerId, farms });
+    }).catch(loadError => {
+      if (active) setFarmResult({ uid: farmerId, farms: [], error: getFirebaseLoadErrorMessage(loadError, 'Farms') });
+    });
+    return () => { active = false; };
+  }, [farmerId]);
 
-  const farmOptions = farms.map(f => ({ value: f.farmId, label: f.name }));
+  const currentFarms = farmResult?.uid === farmerId ? farmResult : undefined;
+  const farmOptions = currentFarms?.farms.map(farm => ({ value: farm.farmId, label: farm.name })) ?? [];
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
@@ -70,6 +79,10 @@ export default function NewCropPage() {
 
   const onSubmit = async (data: FormData) => {
     if (!userProfile) return;
+    if (!farmOptions.some(farm => farm.value === data.farmId)) {
+      setError('Select one of your saved farms before saving this crop.');
+      return;
+    }
     setError(null);
     try {
       await cropService.create({
@@ -91,8 +104,8 @@ export default function NewCropPage() {
         pestManagementDetails: data.pestManagementDetails,
       });
       router.push(ROUTES.FARMER_CROPS);
-    } catch {
-      setError('Failed to save crop. Please try again.');
+    } catch (saveError) {
+      setError(getFirebaseOperationErrorMessage(saveError, 'Saving the crop'));
     }
   };
 
@@ -103,15 +116,17 @@ export default function NewCropPage() {
         <p className="text-sm text-neutral-500 mt-1">Track a crop on one of your farms.</p>
       </div>
 
-      {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form noValidate onSubmit={handleSubmit(onSubmit, () => setError('Check the highlighted crop fields, then try again.'))} className="space-y-6">
         <Card>
           <h2 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
             <Sprout className="w-5 h-5 text-primary-600"/> Crop Details
           </h2>
           <div className="space-y-4">
-            {farmOptions.length > 0 && (
+            {!currentFarms ? <p role="status" className="text-sm text-neutral-600">Loading farms...</p>
+              : currentFarms.error ? <Alert variant="error">{currentFarms.error}</Alert>
+              : farmOptions.length === 0 ? (
+                <Alert variant="info">Save a farm before adding a crop. <Link href={ROUTES.FARMER_FARMS} className="underline">Open My Farms</Link></Alert>
+              ) : (
               <Select label="Farm" required options={farmOptions} placeholder="Select a farm" error={errors.farmId?.message} {...register('farmId')} />
             )}
             <div className="grid grid-cols-2 gap-4">
@@ -127,7 +142,7 @@ export default function NewCropPage() {
               <Select label="Current Stage" required options={stageOptions} error={errors.currentGrowthStage?.message} {...register('currentGrowthStage')} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Cultivated Area" type="number" required placeholder="e.g. 1.5" error={errors.cultivatedArea?.message} {...register('cultivatedArea')} />
+              <Input label="Cultivated Area" type="number" step="any" required placeholder="e.g. 1.5" error={errors.cultivatedArea?.message} {...register('cultivatedArea')} />
               <Select label="Unit" required options={unitOptions} error={errors.areaUnit?.message} {...register('areaUnit')} />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -146,9 +161,10 @@ export default function NewCropPage() {
           </div>
         </Card>
 
+        {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
         <div className="flex gap-3">
           <Button type="button" variant="secondary" onClick={() => router.push(ROUTES.FARMER_CROPS)}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting} leftIcon={<Sprout className="w-4 h-4"/>}>Save Crop</Button>
+          <Button type="submit" disabled={!farmOptions.length} isLoading={isSubmitting} leftIcon={<Sprout className="w-4 h-4"/>}>Save Crop</Button>
         </div>
       </form>
     </div>
