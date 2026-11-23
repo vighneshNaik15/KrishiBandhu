@@ -11,8 +11,9 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-  Unsubscribe,
+  type Unsubscribe,
   arrayUnion,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants';
@@ -68,7 +69,7 @@ export const orderService = {
     const ref = await addDoc(collection(db, COLLECTIONS.ORDERS), {
       ...data,
       status: initialStatus,
-      statusHistory: [{ status: initialStatus, changedAt: serverTimestamp(), changedBy: data.buyerId }],
+      statusHistory: [{ status: initialStatus, changedAt: Timestamp.now(), changedBy: data.buyerId }],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -85,7 +86,7 @@ export const orderService = {
       status,
       statusHistory: arrayUnion({
         status,
-        changedAt: serverTimestamp(),
+        changedAt: Timestamp.now(),
         changedBy,
         ...(note ? { note } : {}),
       }),

@@ -75,7 +75,7 @@ export default function StorageFinderPage() {
           <Select
             label="District"
             options={districts.map((value) => ({ value, label: value }))}
-            placeholder={loading ? 'Loading districtsâ€¦' : 'Select district'}
+            placeholder={loading ? 'Loading districts…' : 'Select district'}
             value={district}
             disabled={loading || Boolean(error)}
             onChange={(event) => setDistrict(event.target.value)}
@@ -93,7 +93,7 @@ export default function StorageFinderPage() {
       ) : district && !error ? (
         <section aria-live="polite">
           {hasUnverifiedLeads && (
-            <Alert variant="warning" title="Civil Supplies leads â€” not verified for farmer storage" className="mb-4">
+            <Alert variant="warning" title="Unverified Civil Supplies storage leads" className="mb-4">
               Facility details are transcribed from indexed text of a Goa Civil Supplies Citizen&apos;s Charter PDF uploaded in 2021.
               Farmer harvest-storage access, current operation, addresses and listed capacities have not been independently confirmed.
               Verify details with the department before visiting.

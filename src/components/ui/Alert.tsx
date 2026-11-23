@@ -60,6 +60,7 @@ export function Alert({ variant = 'info', title, children, onDismiss, className 
 
       {onDismiss && (
         <button
+          type="button"
           onClick={onDismiss}
           className="shrink-0 p-0.5 rounded hover:bg-black/10 transition-colors"
           aria-label="Dismiss"

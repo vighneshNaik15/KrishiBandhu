@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ShoppingBag, Package, Search, Star } from 'lucide-react';
+import { ShoppingBag, Package, Search } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { orderService } from '@/services/orderService';
 import { StatCard, EmptyState, Card } from '@/components/ui/Card';
@@ -45,13 +45,10 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
         <p className="text-sm text-neutral-500 mt-1">Browse fresh Konkan products and manage your orders.</p>
       </div>
 
-      {error && <Alert variant="error">{error}</Alert>}
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Orders" value={loading ? '—' : orders.length} icon={<ShoppingBag className="w-5 h-5" />} accentColor="blue" />
-        <StatCard label="Active Orders" value={loading ? '—' : activeOrders.length} icon={<Package className="w-5 h-5" />} accentColor="amber" />
-        <StatCard label="Pending" value={loading ? '—' : pendingOrders.length} icon={<Package className="w-5 h-5" />} accentColor="green" />
-        <StatCard label="Reviews Given" value="—" icon={<Star className="w-5 h-5" />} accentColor="green" />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <StatCard label="Total Orders" value={loading || error ? '—' : orders.length} icon={<ShoppingBag className="w-5 h-5" />} accentColor="blue" />
+        <StatCard label="Active Orders" value={loading || error ? '—' : activeOrders.length} icon={<Package className="w-5 h-5" />} accentColor="amber" />
+        <StatCard label="Pending" value={loading || error ? '—' : pendingOrders.length} icon={<Package className="w-5 h-5" />} accentColor="green" />
       </div>
 
       <Card>
@@ -67,6 +64,8 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
       </Card>
       </>}
 
+      {error && <Alert variant="error">{error}</Alert>}
+
       <Card>
         {!ordersOnly && <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-neutral-800">My Orders</h2>
@@ -78,7 +77,7 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
         ) : error ? null : orders.length === 0 ? (
           <EmptyState
             title="No orders yet"
-            description="Browse the marketplace and place your first order from a Konkan farmer."
+            description="You can browse product listings. Online order requests are currently unavailable."
             action={<Link href={ROUTES.BUYER_MARKETPLACE}><Button size="sm">Browse Products</Button></Link>}
           />
         ) : (

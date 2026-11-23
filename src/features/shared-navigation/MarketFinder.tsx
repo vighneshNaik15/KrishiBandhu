@@ -82,7 +82,7 @@ export default function MarketFinderPage() {
           <Select
             label="State"
             options={states.map((value) => ({ value, label: value }))}
-            placeholder={loading ? 'Loading statesâ€¦' : 'Select state'}
+            placeholder={loading ? 'Loading states…' : 'Select state'}
             value={state}
             disabled={loading || Boolean(error)}
             onChange={(event) => {

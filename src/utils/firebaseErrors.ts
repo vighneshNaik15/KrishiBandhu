@@ -13,7 +13,7 @@ function getFirebaseErrorCode(error: unknown): string | null {
 export function getFirebaseLoadErrorMessage(error: unknown, resource: string): string {
   const code = getFirebaseErrorCode(error);
   if (code === 'failed-precondition') {
-    return `${resource} could not be loaded because Firestore requires a composite index. Deploy firestore.indexes.json, then retry.`;
+    return `Could not load ${resource.toLowerCase()}. Ask KrishiBandhu support to check the Firestore index for this page.`;
   }
   if (code === 'permission-denied') {
     return `${resource} could not be loaded because Firestore denied access. Check your account role and the published security rules.`;

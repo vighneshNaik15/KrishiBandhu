@@ -41,6 +41,9 @@ export default function AccountProfile() {
           <Input label="Full name" name="name" defaultValue={userProfile.name} minLength={2} maxLength={100} required />
           <Input label="Email address" type="email" value={userProfile.email} readOnly />
           <Input label="Phone number" name="phone" type="tel" maxLength={30} defaultValue={userProfile.phone} />
+          {userProfile.district && userProfile.state && (
+            <p className="text-sm text-neutral-600">Registered location · {userProfile.district}, {userProfile.state}</p>
+          )}
           <Button type="submit" isLoading={saving}>Save profile</Button>
         </form>
       </Card>

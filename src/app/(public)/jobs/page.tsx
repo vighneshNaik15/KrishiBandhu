@@ -69,8 +69,8 @@ export default function PublicJobsPage() {
       </div>
 
       <div className="flex gap-3 flex-col sm:flex-row mb-8">
-        <Input placeholder="Search jobs..." leftIcon={<Search className="w-4 h-4"/>} value={search} onChange={e => setSearch(e.target.value)} className="flex-1"/>
-        <Select options={districtOptions} value={district} onChange={e => changeDistrict(e.target.value)} disabled={loading} className="sm:w-48"/>
+        <Input aria-label="Search jobs" placeholder="Search jobs..." leftIcon={<Search className="w-4 h-4"/>} value={search} onChange={e => setSearch(e.target.value)} className="flex-1"/>
+        <Select aria-label="District" options={districtOptions} value={district} onChange={e => changeDistrict(e.target.value)} disabled={loading} className="sm:w-48"/>
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
@@ -93,7 +93,7 @@ export default function PublicJobsPage() {
                   <div className="flex flex-wrap gap-4 text-xs text-neutral-500">
                     <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-primary-500"/> {[job.village, job.district].filter(Boolean).join(', ')}</span>
                     <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-primary-500"/> {formatDate(job.startDate)}</span>
-                    <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-primary-500"/> {job.workersRequired} needed</span>
+                    <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-primary-500"/> {job.resourcesRequired ?? job.workersRequired} {job.resourceType === 'machinery' ? 'equipment needed' : 'workers needed'}</span>
                     {job.paymentAmount && <span className="flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5 text-primary-500"/> {formatPrice(job.paymentAmount)} {PAYMENT_TYPE_LABELS[job.paymentType]}</span>}
                   </div>
                 </div>

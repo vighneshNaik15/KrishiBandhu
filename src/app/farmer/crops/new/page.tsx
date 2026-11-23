@@ -25,7 +25,7 @@ import type { Farm } from '@/models/farm';
 
 const schema = z.object({
   farmId: z.string().min(1, 'Please select a farm'),
-  name: z.string().min(2, 'Crop name is required'),
+  name: z.string().trim().min(2, 'Crop name is required'),
   localName: z.string().optional(),
   category: z.string().min(1, 'Please select a category'),
   variety: z.string().optional(),
@@ -38,6 +38,9 @@ const schema = z.object({
   irrigationDetails: z.string().optional(),
   fertilizerDetails: z.string().optional(),
   pestManagementDetails: z.string().optional(),
+}).refine(({ sowingDate, expectedHarvestDate }) => !sowingDate || !expectedHarvestDate || expectedHarvestDate >= sowingDate, {
+  path: ['expectedHarvestDate'],
+  message: 'Expected harvest must be on or after the sowing date',
 });
 
 type FormInput = z.input<typeof schema>;
@@ -147,7 +150,7 @@ export default function NewCropPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Sowing Date" type="date" {...register('sowingDate')} />
-              <Input label="Expected Harvest" type="date" {...register('expectedHarvestDate')} />
+              <Input label="Expected Harvest" type="date" error={errors.expectedHarvestDate?.message} {...register('expectedHarvestDate')} />
             </div>
           </div>
         </Card>

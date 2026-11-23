@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -26,6 +26,7 @@ interface AuthState {
 }
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  retryUserProfile: () => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -58,75 +59,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const authStateRevision = useRef(0);
   const registrationInProgress = useRef(false);
+  const usingOfflineProfile = useRef(false);
 
-  // Listen to Firebase Auth state changes
-  useEffect(() => {
-    let usingOfflineProfile = false;
-    const resolveProfile = async (firebaseUser: FirebaseUser | null) => {
-      usingOfflineProfile = false;
-      const revision = ++authStateRevision.current;
-      if (!firebaseUser) {
-        setState({ firebaseUser: null, userProfile: null, loading: false, error: null });
+  const resolveProfile = useCallback(async (firebaseUser: FirebaseUser | null) => {
+    if (firebaseUser && registrationInProgress.current) return;
+    usingOfflineProfile.current = false;
+    const revision = ++authStateRevision.current;
+    if (!firebaseUser) {
+      setState({ firebaseUser: null, userProfile: null, loading: false, error: null });
+      return;
+    }
+
+    setState(previous => previous.offlineFarmerUid === firebaseUser.uid
+      ? previous
+      : { firebaseUser, userProfile: null, loading: true, error: null });
+    const profileKey = `krishibandhu:farmer:${auth.app.options.projectId}:${firebaseUser.uid}`;
+    if (!navigator.onLine) {
+      let previousFarmer = false;
+      try { previousFarmer = localStorage.getItem(profileKey) === 'active'; } catch {}
+      if (previousFarmer) {
+        usingOfflineProfile.current = true;
+        setState({ firebaseUser, userProfile: null, offlineFarmerUid: firebaseUser.uid, loading: false, error: null });
         return;
       }
-
-      setState(previous => previous.firebaseUser?.uid === firebaseUser.uid ? previous :
-        { firebaseUser, userProfile: null, loading: true, error: null });
-      const profileKey = `krishibandhu:farmer:${auth.app.options.projectId}:${firebaseUser.uid}`;
-      if (!navigator.onLine) {
-        let previousFarmer = false;
-        try { previousFarmer = localStorage.getItem(profileKey) === 'active'; } catch {}
-        if (previousFarmer) {
-          usingOfflineProfile = true;
-          setState({ firebaseUser, userProfile: null, offlineFarmerUid: firebaseUser.uid, loading: false, error: null });
-          return;
-        }
-      }
+    }
+    try {
+      const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid));
+      if (revision !== authStateRevision.current) return;
+      const userProfile = userDoc.exists() ? (userDoc.data() as User) : null;
       try {
-        const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid));
-        if (revision !== authStateRevision.current) return;
-        const userProfile = userDoc.exists() ? (userDoc.data() as User) : null;
-        try {
-          if (userProfile?.role === 'farmer' && userProfile.isActive) localStorage.setItem(profileKey, 'active');
-          else localStorage.removeItem(profileKey);
-        } catch {}
-        setState({
-          firebaseUser,
-          userProfile,
-          loading: false,
-          error: userDoc.exists() || registrationInProgress.current
-            ? null
-            : 'Your Firebase account exists, but its KrishiBandhu profile is missing. Check Firestore rules or ask an administrator to repair the profile.',
-        });
-      } catch (err) {
-        if (revision !== authStateRevision.current) return;
-        console.error('Failed to fetch user profile:', err);
-        setState({
-          firebaseUser,
-          userProfile: null,
-          loading: false,
-          error: getProfileLoadErrorMessage(err),
-        });
-      }
-    };
+        if (userProfile?.role === 'farmer' && userProfile.isActive) localStorage.setItem(profileKey, 'active');
+        else localStorage.removeItem(profileKey);
+      } catch {}
+      setState({
+        firebaseUser,
+        userProfile,
+        loading: false,
+        error: userDoc.exists()
+          ? null
+          : 'Your Firebase account exists, but its KrishiBandhu profile is missing. Check Firestore rules or ask an administrator to repair the profile.',
+      });
+    } catch (err) {
+      if (revision !== authStateRevision.current) return;
+      console.error('Failed to fetch user profile:', err);
+      setState({
+        firebaseUser,
+        userProfile: null,
+        loading: false,
+        error: getProfileLoadErrorMessage(err),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, resolveProfile);
     const reconnect = () => {
-      if (usingOfflineProfile) void resolveProfile(auth.currentUser);
+      if (usingOfflineProfile.current) void resolveProfile(auth.currentUser);
     };
     window.addEventListener('online', reconnect);
     return () => {
+      authStateRevision.current += 1;
       unsubscribe();
       window.removeEventListener('online', reconnect);
     };
-  }, []);
+  }, [resolveProfile]);
+
+  const retryUserProfile = async (): Promise<void> => {
+    if (auth.currentUser) await resolveProfile(auth.currentUser);
+  };
 
   // ── Auth methods ─────────────────────────────────────────────────────────────
 
   const login = async (email: string, password: string): Promise<void> => {
+    const previousUid = auth.currentUser?.uid;
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will update state
+      const { user } = await signInWithEmailAndPassword(auth, email, password);
+      if (previousUid === user.uid && auth.currentUser?.uid === user.uid) {
+        await resolveProfile(user);
+      }
     } catch (err: unknown) {
       const message = getFirebaseErrorMessage(err);
       setState((s) => ({ ...s, loading: false, error: message }));
@@ -140,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let profileBatchCommitted = false;
 
     try {
+      if (!navigator.onLine) throw new Error('Connect to the internet to create an account.');
       if (data.role === 'farmer' && (!data.district || !data.state)) {
         throw new Error('District and state are required to create a farmer profile.');
       }
@@ -157,6 +169,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: data.name,
         email: data.email,
         ...(data.phone !== undefined ? { phone: data.phone } : {}),
+        ...(data.role === 'worker' && data.state && data.district
+          ? { state: data.state, district: data.district }
+          : {}),
         role: data.role,
       };
 
@@ -187,19 +202,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await batch.commit();
       profileBatchCommitted = true;
 
-      const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid));
-      if (!userDoc.exists()) {
-        throw new Error('Your account was created, but its Firestore profile could not be found. Check the published Firestore rules.');
-      }
-
-      authStateRevision.current += 1;
       registrationInProgress.current = false;
-      setState({
-        firebaseUser,
-        userProfile: userDoc.data() as User,
-        loading: false,
-        error: null,
-      });
+      if (auth.currentUser?.uid === firebaseUser.uid) await resolveProfile(firebaseUser);
     } catch (err: unknown) {
       registrationInProgress.current = false;
       let message = err instanceof Error && !('code' in err)
@@ -249,13 +253,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Your account profile could not be found.');
     }
 
-    setState((s) => ({ ...s, userProfile: userDoc.data() as User }));
+    setState((s) => s.firebaseUser?.uid === currentUser.uid
+      ? { ...s, userProfile: userDoc.data() as User }
+      : s);
   };
 
   const clearError = () => setState((s) => ({ ...s, error: null }));
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, resetPassword, refreshUserProfile, clearError }}>
+    <AuthContext.Provider value={{ ...state, login, retryUserProfile, register, logout, resetPassword, refreshUserProfile, clearError }}>
       {children}
     </AuthContext.Provider>
   );

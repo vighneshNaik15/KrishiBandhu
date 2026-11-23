@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Calendar, Users, IndianRupee, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Users, IndianRupee, CheckCircle, XCircle } from 'lucide-react';
 import { jobService } from '@/services/jobService';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -46,6 +45,7 @@ export default function FarmerJobDetailPage() {
 
   const handleApplicationUpdate = async (applicationId: string, status: JobApplication['status']) => {
     setUpdating(applicationId);
+    setError(null);
     try {
       await jobService.updateApplication(applicationId, status);
       setApplications(prev => prev.map(a => a.applicationId === applicationId ? { ...a, status } : a));
@@ -53,40 +53,36 @@ export default function FarmerJobDetailPage() {
         const updatedJob = await jobService.getById(jobId);
         if (updatedJob) setJob(updatedJob);
       }
-    } catch {
-      setError('Failed to update application.');
+    } catch (updateError) {
+      setError(updateError instanceof Error && !('code' in updateError) ? updateError.message : 'Could not update the application. Refresh the page and try again.');
     } finally {
       setUpdating(null);
     }
   };
 
-  const handleFarmerStatus = async (status: 'scheduled' | 'completed') => {
+  const handleFarmerStatus = async (status: 'published' | 'scheduled' | 'completed') => {
+    setUpdating(status);
+    setError(null);
     try {
       await jobService.updateStatus(jobId, status);
       setJob(prev => prev ? { ...prev, status } : prev);
     } catch {
       setError('Could not update the request status. Refresh the page and try again.');
+    } finally {
+      setUpdating(null);
     }
   };
 
-  const handlePublish = async () => {
-    if (!job) return;
-    try {
-      await jobService.updateStatus(jobId, 'published');
-      setJob(prev => prev ? { ...prev, status: 'published' } : prev);
-    } catch { setError('Failed to publish job.'); }
-  };
-
   if (loading) return <div className="max-w-4xl mx-auto space-y-4">{[1,2].map(i=><div key={i} className="h-40 bg-neutral-100 rounded-xl animate-pulse"/>)}</div>;
-  if (error || !job) return <div className="max-w-4xl mx-auto"><Alert variant="error">{error ?? 'Job not found.'}</Alert><Button variant="ghost" onClick={() => router.push(ROUTES.FARMER_JOBS)} className="mt-4" leftIcon={<ArrowLeft className="w-4 h-4"/>}>Go back</Button></div>;
+  if (!job) return <div className="max-w-4xl mx-auto"><Alert variant="error">{error ?? 'Job not found.'}</Alert><Button variant="ghost" onClick={() => router.push(ROUTES.FARMER_JOBS)} className="mt-4" leftIcon={<ArrowLeft className="w-4 h-4"/>}>Go back</Button></div>;
 
   const pending = applications.filter(a => a.status === 'pending');
   const accepted = applications.filter(a => a.status === 'accepted');
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-start gap-4">
-        <button onClick={() => router.push(ROUTES.FARMER_JOBS)} className="mt-1 p-1 rounded text-neutral-400 hover:text-neutral-700">
+      <div className="flex flex-wrap items-start gap-4">
+        <button type="button" aria-label="Back to jobs" onClick={() => router.push(ROUTES.FARMER_JOBS)} className="mt-1 p-1 rounded text-neutral-400 hover:text-neutral-700">
           <ArrowLeft className="w-5 h-5"/>
         </button>
         <div className="flex-1 min-w-0">
@@ -99,15 +95,16 @@ export default function FarmerJobDetailPage() {
           <p className="text-sm text-neutral-500">{JOB_CATEGORY_LABELS[job.category]}</p>
         </div>
         {job.status === 'draft' && (
-          <Button size="sm" onClick={handlePublish}>Publish Job</Button>
+          <Button size="sm" isLoading={updating === 'published'} onClick={() => handleFarmerStatus('published')}>Publish Job</Button>
         )}
         {job.requestType === 'harvest_service' && job.status === 'worker_selected' && (
-          <Button size="sm" onClick={() => handleFarmerStatus('scheduled')}>Confirm schedule</Button>
+          <Button size="sm" isLoading={updating === 'scheduled'} onClick={() => handleFarmerStatus('scheduled')}>Confirm schedule</Button>
         )}
         {job.requestType === 'harvest_service' && job.status === 'completion_pending' && (
-          <Button size="sm" onClick={() => handleFarmerStatus('completed')}>Confirm completion</Button>
+          <Button size="sm" isLoading={updating === 'completed'} onClick={() => handleFarmerStatus('completed')}>Confirm completion</Button>
         )}
       </div>
+      {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="md:col-span-2 space-y-4">
@@ -144,7 +141,7 @@ export default function FarmerJobDetailPage() {
           <h2 className="font-semibold text-neutral-800 mb-4">Applicants ({applications.length})</h2>
           <div className="space-y-3">
             {applications.map(app => (
-              <div key={app.applicationId} className="flex items-center justify-between gap-4 p-3 rounded-lg border border-neutral-200 bg-neutral-50">
+              <div key={app.applicationId} className="flex flex-col items-start justify-between gap-3 p-3 rounded-lg border border-neutral-200 bg-neutral-50 sm:flex-row sm:items-center">
                 <div className="min-w-0">
                   <p className="font-medium text-sm text-neutral-900">{app.workerName}</p>
                   {app.workerPhone && <p className="text-xs text-neutral-500">{app.workerPhone}</p>}
@@ -153,8 +150,8 @@ export default function FarmerJobDetailPage() {
                 <div className="flex items-center gap-2 shrink-0">
                   {app.status === 'pending' ? (
                     <>
-                      <Button size="sm" variant="primary" onClick={() => handleApplicationUpdate(app.applicationId, 'accepted')} isLoading={updating === app.applicationId} leftIcon={<CheckCircle className="w-3.5 h-3.5"/>}>Accept</Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleApplicationUpdate(app.applicationId, 'rejected')} leftIcon={<XCircle className="w-3.5 h-3.5"/>}>Reject</Button>
+                      <Button size="sm" variant="primary" onClick={() => handleApplicationUpdate(app.applicationId, 'accepted')} disabled={Boolean(updating) || !['published', 'applications_open'].includes(job.status)} isLoading={updating === app.applicationId} leftIcon={<CheckCircle className="w-3.5 h-3.5"/>}>Accept</Button>
+                      <Button size="sm" variant="ghost" disabled={Boolean(updating)} onClick={() => handleApplicationUpdate(app.applicationId, 'rejected')} leftIcon={<XCircle className="w-3.5 h-3.5"/>}>Reject</Button>
                     </>
                   ) : (
                     <Badge variant={app.status === 'accepted' ? 'success' : app.status === 'rejected' ? 'error' : 'neutral'}>

@@ -32,6 +32,7 @@ export function AuthGuard({ children, requiredRole, redirectTo = ROUTES.LOGIN }:
   const { firebaseUser, userProfile, offlineFarmerUid, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const activeProfile = userProfile?.isActive ? userProfile : null;
   const offlineFarmAccess = Boolean(offlineFarmerUid && offlineFarmerUid === firebaseUser?.uid &&
     requiredRole === 'farmer' && pathname === ROUTES.FARMER_FARMS);
 
@@ -43,20 +44,20 @@ export function AuthGuard({ children, requiredRole, redirectTo = ROUTES.LOGIN }:
       return;
     }
 
-    if (requiredRole && userProfile?.role !== requiredRole && !offlineFarmAccess) {
-      const correctDashboard = userProfile
-        ? ROLE_DASHBOARD[userProfile.role]
+    if (requiredRole && activeProfile?.role !== requiredRole && !offlineFarmAccess) {
+      const correctDashboard = activeProfile
+        ? ROLE_DASHBOARD[activeProfile.role]
         : ROUTES.LOGIN;
       router.replace(correctDashboard);
     }
-  }, [loading, firebaseUser, userProfile, requiredRole, offlineFarmAccess, redirectTo, router]);
+  }, [loading, firebaseUser, activeProfile, requiredRole, offlineFarmAccess, redirectTo, router]);
 
   if (loading) {
     return <AuthLoadingScreen />;
   }
 
   if (!firebaseUser) return null;
-  if (requiredRole && userProfile?.role !== requiredRole && !offlineFarmAccess) return null;
+  if (requiredRole && activeProfile?.role !== requiredRole && !offlineFarmAccess) return null;
 
   return <>{children}</>;
 }

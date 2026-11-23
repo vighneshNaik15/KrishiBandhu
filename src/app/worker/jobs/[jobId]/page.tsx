@@ -13,35 +13,43 @@ import { Textarea } from '@/components/ui/Input';
 import { ROUTES } from '@/lib/constants';
 import { JOB_CATEGORY_LABELS, PAYMENT_TYPE_LABELS, type JobStatus } from '@/models/job';
 import { formatDate, formatPrice } from '@/utils/formatters';
-import type { Job } from '@/models/job';
+import type { Job, JobApplication } from '@/models/job';
 import { RequestPhotos } from '@/features/harvest-storage/RequestPhotos';
 import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 
 export default function WorkerJobDetailPage() {
   const params = useParams();
   const { userProfile } = useAuth();
+  const workerId = userProfile?.uid;
   const jobId = params.jobId as string;
 
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<JobApplication['status']>();
+  const [progressSaving, setProgressSaving] = useState(false);
   const [coverNote, setCoverNote] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    jobService.getById(jobId)
-      .then(data => {
+    if (!workerId) return;
+    let active = true;
+    Promise.all([jobService.getById(jobId), jobService.getWorkerApplication(jobId, workerId)])
+      .then(([data, application]) => {
+        if (!active) return;
         if (!data) { setError('Job not found.'); return; }
         setJob(data);
+        setApplicationStatus(application?.status);
       })
-      .catch((loadError: unknown) => setError(getFirebaseLoadErrorMessage(loadError, 'Job details')))
-      .finally(() => setLoading(false));
-  }, [jobId]);
+      .catch((loadError: unknown) => { if (active) setError(getFirebaseLoadErrorMessage(loadError, 'Job details')); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [jobId, workerId]);
 
   const handleApply = async () => {
-    if (!userProfile || !job || !['published', 'applications_open'].includes(job.status)) return;
+    if (!userProfile || !job || applicationStatus || !['published', 'applications_open'].includes(job.status)) return;
     setApplying(true);
+    setError(null);
     try {
       await jobService.applyForJob({
         jobId: job.jobId,
@@ -52,7 +60,8 @@ export default function WorkerJobDetailPage() {
         ...(userProfile.phone ? { workerPhone: userProfile.phone } : {}),
         coverNote,
       });
-      setApplied(true);
+      const application = await jobService.getWorkerApplication(job.jobId, userProfile.uid);
+      setApplicationStatus(application?.status ?? 'pending');
     } catch {
       setError('Failed to submit application. Please try again.');
     } finally {
@@ -62,22 +71,27 @@ export default function WorkerJobDetailPage() {
 
   const handleProgress = async (status: Extract<JobStatus, 'in_progress' | 'completion_pending'>) => {
     if (!job) return;
+    setError(null);
+    setProgressSaving(true);
     try {
       await jobService.updateWorkerProgress(jobId, status);
       setJob({ ...job, status });
     } catch {
       setError('Could not update the work status. Refresh the page and try again.');
+    } finally {
+      setProgressSaving(false);
     }
   };
 
   if (loading) return <div className="max-w-3xl mx-auto space-y-4">{[1,2].map(i=><div key={i} className="h-40 bg-neutral-100 rounded-xl animate-pulse"/>)}</div>;
-  if (error || !job) return <div className="max-w-3xl mx-auto"><Alert variant="error">{error ?? 'Job not found.'}</Alert></div>;
+  if (!job) return <div className="max-w-3xl mx-auto"><Alert variant="error">{error ?? 'Job not found.'}</Alert><Link href={ROUTES.WORKER_JOBS} className="mt-4 inline-block underline">Back to jobs</Link></div>;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <Link href={ROUTES.WORKER_JOBS} className="text-sm text-neutral-500 hover:text-neutral-700 flex items-center gap-1">
         <ArrowLeft className="w-4 h-4"/> Back to jobs
       </Link>
+      {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
 
       <Card>
         <h1 className="text-xl font-bold font-heading text-neutral-900 mb-1">{job.title}</h1>
@@ -121,14 +135,14 @@ export default function WorkerJobDetailPage() {
       {userProfile && job.selectedWorkerIds?.includes(userProfile.uid) ? (
         <Card className="space-y-3">
           <h2 className="font-semibold text-neutral-800">Assigned work</h2>
-          {job.status === 'scheduled' && <Button onClick={() => handleProgress('in_progress')}>Mark work started</Button>}
-          {job.status === 'in_progress' && <Button onClick={() => handleProgress('completion_pending')}>Submit work for completion confirmation</Button>}
+          {job.requestType === 'harvest_service' && job.status === 'scheduled' && <Button isLoading={progressSaving} onClick={() => handleProgress('in_progress')}>Mark work started</Button>}
+          {job.requestType === 'harvest_service' && job.status === 'in_progress' && <Button isLoading={progressSaving} onClick={() => handleProgress('completion_pending')}>Submit work for completion confirmation</Button>}
           {job.status === 'completion_pending' && <Alert variant="success">Your completion request is awaiting confirmation from the farmer.</Alert>}
           {job.status === 'completed' && <Alert variant="success">The farmer confirmed this work as completed.</Alert>}
         </Card>
-      ) : applied ? (
-        <Alert variant="success">
-          Your application has been submitted! The farmer will review and contact you.
+      ) : applicationStatus ? (
+        <Alert variant={applicationStatus === 'pending' ? 'success' : 'info'}>
+          {applicationStatus === 'pending' ? 'Your application has been submitted and is awaiting review.' : `Your application status is ${applicationStatus}.`}
         </Alert>
       ) : (
         <Card>
@@ -141,7 +155,6 @@ export default function WorkerJobDetailPage() {
               onChange={e => setCoverNote(e.target.value)}
               rows={3}
             />
-            {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
             <Button onClick={handleApply} isLoading={applying} disabled={!['published', 'applications_open'].includes(job.status)} leftIcon={<Send className="w-4 h-4"/>} fullWidth>
               Submit Application
             </Button>

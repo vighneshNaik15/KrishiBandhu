@@ -146,6 +146,7 @@ export function WeatherDashboard() {
     error: null,
   });
   const searchController = useRef<AbortController | null>(null);
+  const locationSearchStarted = useRef(false);
 
   const farmStateIsCurrent = farmState.farmerId === farmerId;
   const farms = farmStateIsCurrent ? farmState.farms : [];
@@ -172,6 +173,7 @@ export function WeatherDashboard() {
         if (!defaultFarm) return;
 
         setSelectedFarmId(defaultFarm.farmId);
+        if (locationSearchStarted.current) return;
         setLocationQuery(getFarmAddress(defaultFarm));
         const coordinates = getFarmCoordinates(defaultFarm);
         setSelectedLocation(coordinates
@@ -254,6 +256,7 @@ export function WeatherDashboard() {
 
   const handleLocationSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    locationSearchStarted.current = true;
     const query = locationQuery.trim();
     if (query.length < 2) {
       setLocationSearchError('Enter at least 2 characters to search for a location.');
@@ -352,7 +355,10 @@ export function WeatherDashboard() {
               placeholder="Search an Indian village, town, district, or city"
               leftIcon={<Search className="w-4 h-4" aria-hidden />}
               value={locationQuery}
-              onChange={(event) => setLocationQuery(event.target.value)}
+              onChange={(event) => {
+                locationSearchStarted.current = true;
+                setLocationQuery(event.target.value);
+              }}
               disabled={searchingLocations}
               hint="Results are limited to India. Selecting one changes this weather view only; it does not update your saved farm."
             />

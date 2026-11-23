@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, User, Mail, Lock, Phone } from 'lucide-react';
@@ -35,12 +35,12 @@ export default function RegisterWorkerPage() {
   const router = useRouter();
   const [showPass, setShowPass] = useState(false);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, control, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { state: 'Goa' },
   });
 
-  const watchedState = watch('state');
+  const watchedState = useWatch({ control, name: 'state' });
   const districtOptions = (KONKAN_DISTRICTS[watchedState] ?? []).map((d) => ({ value: d, label: d }));
 
   const onSubmit = async (data: FormData) => {
@@ -51,6 +51,8 @@ export default function RegisterWorkerPage() {
         email: data.email,
         password: data.password,
         phone: data.phone,
+        state: data.state,
+        district: data.district,
         role: 'worker',
       });
       router.replace(ROUTES.WORKER_DASHBOARD);

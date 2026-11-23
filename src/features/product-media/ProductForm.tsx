@@ -16,9 +16,9 @@ import { ROUTES, PRODUCT_UNITS, KONKAN_DISTRICTS, INDIAN_STATES } from '@/lib/co
 import { PRODUCT_CATEGORIES, type Product, type ProductCategory } from '@/models/product';
 
 const schema = z.object({
-  name: z.string().min(2, 'Product name is required'),
+  name: z.string().trim().min(2, 'Product name is required'),
   category: z.string().min(1, 'Please select a category'),
-  description: z.string().min(10, 'Please add a description (at least 10 characters)'),
+  description: z.string().trim().min(10, 'Please add a description (at least 10 characters)'),
   price: z.coerce.number().positive('Price must be a positive number'),
   unit: z.string().min(1, 'Please select a unit'),
   minimumOrderQuantity: z.coerce.number().int().positive().default(1),
@@ -99,7 +99,7 @@ export function ProductForm({ product }: { product?: Product }) {
           <h2 className="font-semibold text-neutral-800 mb-4">Pricing & Quantity</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Price (₹)" type="number" required placeholder="e.g. 150" error={errors.price?.message} {...register('price')} />
+              <Input label="Price (₹)" type="number" min={0.01} step={0.01} required placeholder="e.g. 150" error={errors.price?.message} {...register('price')} />
               <Select label="Unit" required options={unitOptions} error={errors.unit?.message} {...register('unit')} />
             </div>
             <div className="grid grid-cols-2 gap-4">

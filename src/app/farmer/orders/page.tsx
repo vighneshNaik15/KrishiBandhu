@@ -33,6 +33,7 @@ export default function FarmerOrdersPage() {
 
   const handleStatusUpdate = async (orderId: string, status: OrderStatus) => {
     if (!userProfile) return;
+    setError(null);
     setUpdating(orderId);
     try {
       await orderService.updateStatus(orderId, status, userProfile.uid);
@@ -74,7 +75,7 @@ export default function FarmerOrdersPage() {
           <EmptyState
             icon={<ShoppingBag className="w-8 h-8"/>}
             title="No orders yet"
-            description="Orders from buyers will appear here once you list products on the marketplace."
+            description="Online order requests are currently unavailable."
           />
         </Card>
       ) : (
@@ -83,7 +84,7 @@ export default function FarmerOrdersPage() {
             const actions = getNextActions(order);
             return (
               <Card key={order.orderId}>
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h3 className="font-semibold text-neutral-900">{order.productName}</h3>
@@ -104,6 +105,7 @@ export default function FarmerOrdersPage() {
                           variant={action.status === 'rejected' ? 'danger' : 'primary'}
                           onClick={() => handleStatusUpdate(order.orderId, action.status)}
                           isLoading={updating === order.orderId}
+                          disabled={updating !== null}
                         >
                           {action.label}
                         </Button>

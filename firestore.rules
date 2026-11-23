@@ -45,6 +45,14 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    // Firestore timestamp transforms cannot be used inside arrays. The document's
+    // updatedAt is still required to equal the server commit time.
+    function recentHistoryTimestamp(value) {
+      return value is timestamp
+        && value >= request.time - duration.value(5, 'm')
+        && value <= request.time + duration.value(5, 'm');
+    }
+
     function validUserCreate(uid) {
       let data = request.resource.data;
       return data.keys().hasAll([
@@ -52,7 +60,7 @@ service cloud.firestore {
           'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'uid', 'name', 'email', 'phone', 'role', 'isActive', 'isVerified',
+          'uid', 'name', 'email', 'phone', 'role', 'isActive', 'isVerified', 'state', 'district',
           'createdAt', 'updatedAt'
         ])
         && data.uid == uid
@@ -61,6 +69,12 @@ service cloud.firestore {
         && data.email is string
         && data.email.size() > 2
         && (!('phone' in data) || data.phone is string)
+        && (!data.keys().hasAny(['state', 'district'])
+          || (data.role == 'worker'
+            && data.get('state', '') is string
+            && data.get('state', '').size() > 0
+            && data.get('district', '') is string
+            && data.get('district', '').size() > 0))
         && data.role in ['farmer', 'worker', 'buyer']
         && data.isActive == true
         && data.isVerified == false
@@ -348,7 +362,7 @@ service cloud.firestore {
     }
 
     function validJobHistoryAppend() {
-      let oldHistory = resource.data.statusHistory;
+      let oldHistory = resource.data.get('statusHistory', []);
       let newHistory = request.resource.data.statusHistory;
       let newEntry = newHistory[oldHistory.size()];
       return oldHistory is list
@@ -359,7 +373,7 @@ service cloud.firestore {
         && newEntry.keys().hasAll(['status', 'changedAt', 'changedBy'])
         && newEntry.keys().hasOnly(['status', 'changedAt', 'changedBy', 'note'])
         && newEntry.status == request.resource.data.status
-        && newEntry.changedAt == request.time
+        && recentHistoryTimestamp(newEntry.changedAt)
         && newEntry.changedBy == request.auth.uid
         && (!('note' in newEntry) || newEntry.note is string);
     }
@@ -479,7 +493,7 @@ service cloud.firestore {
         && (!('requestType' in request.resource.data)
           || validHarvestJobCreate(request.resource.data))
         && (request.resource.data.status == resource.data.status
-          ? request.resource.data.statusHistory == resource.data.statusHistory
+          ? request.resource.data.get('statusHistory', []) == resource.data.get('statusHistory', [])
           : validJobHistoryAppend())
         && (!('requestType' in request.resource.data)
           || request.resource.data.requestType != 'harvest_service'
@@ -502,7 +516,7 @@ service cloud.firestore {
         && get(jobPath(data.jobId)).data.farmerUserId == data.farmerId;
     }
 
-    function validApplicationCreate() {
+    function validApplicationCreate(applicationId) {
       let data = request.resource.data;
       return data.keys().hasAll([
           'jobId', 'farmerId', 'workerId', 'workerUserId', 'workerName',
@@ -516,6 +530,8 @@ service cloud.firestore {
         && isWorker()
         && data.workerId == request.auth.uid
         && data.workerUserId == request.auth.uid
+        && data.jobId is string
+        && applicationId == data.jobId + ':' + request.auth.uid
         && data.status == 'pending'
         && applicationJobMatches(data)
         && get(jobPath(data.jobId)).data.status
@@ -558,7 +574,7 @@ service cloud.firestore {
     }
 
     function validOrderHistoryAppend() {
-      let oldHistory = resource.data.statusHistory;
+      let oldHistory = resource.data.get('statusHistory', []);
       let newHistory = request.resource.data.statusHistory;
       let newEntry = newHistory[oldHistory.size()];
       return oldHistory is list
@@ -569,7 +585,7 @@ service cloud.firestore {
         && newEntry.keys().hasAll(['status', 'changedAt', 'changedBy'])
         && newEntry.keys().hasOnly(['status', 'changedAt', 'changedBy', 'note'])
         && newEntry.status == request.resource.data.status
-        && newEntry.changedAt == request.time
+        && recentHistoryTimestamp(newEntry.changedAt)
         && newEntry.changedBy == request.auth.uid
         && (!('note' in newEntry) || newEntry.note is string);
     }
@@ -628,7 +644,7 @@ service cloud.firestore {
           && resource.data.workerId == request.auth.uid)
         || (isFarmer()
           && resource.data.farmerId == request.auth.uid);
-      allow create: if validApplicationCreate();
+      allow create: if validApplicationCreate(applicationId);
       allow update: if canUpdateApplication(applicationId);
       allow delete: if false;
     }

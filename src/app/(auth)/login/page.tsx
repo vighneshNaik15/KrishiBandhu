@@ -29,7 +29,7 @@ const ROLE_REDIRECT: Record<UserRole, string> = {
 };
 
 export default function LoginPage() {
-  const { login, error, clearError, userProfile } = useAuth();
+  const { login, logout, retryUserProfile, error, clearError, firebaseUser, userProfile, offlineFarmerUid, loading } = useAuth();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -38,11 +38,9 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: FormData) => {
-    clearError();
+    setShowPassword(false);
     try {
       await login(data.email, data.password);
-      // After login, auth state listener will update userProfile
-      // We redirect based on role after a short wait
     } catch {
       // Error is set in context
     }
@@ -50,7 +48,7 @@ export default function LoginPage() {
 
   // Once logged in, redirect to correct dashboard
   React.useEffect(() => {
-    if (userProfile) {
+    if (userProfile?.isActive) {
       const jobId = new URLSearchParams(window.location.search).get('workerJob');
       const workerJob = userProfile.role === 'worker' && jobId && /^[a-zA-Z0-9_-]+$/.test(jobId);
       router.replace(workerJob ? `${ROUTES.WORKER_JOBS}/${jobId}` : ROLE_REDIRECT[userProfile.role]);
@@ -69,6 +67,22 @@ export default function LoginPage() {
           <Alert variant="error" className="mb-6" onDismiss={clearError}>
             {error}
           </Alert>
+        )}
+        {userProfile && !userProfile.isActive && (
+          <Alert variant="warning" className="mb-6">This account is inactive. Contact KrishiBandhu support if you need access.</Alert>
+        )}
+        {offlineFarmerUid && (
+          <Link className="mb-6 block text-primary-700 underline" href={ROUTES.FARMER_FARMS}>Open saved farms</Link>
+        )}
+        {firebaseUser && !userProfile?.isActive && !loading && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            {!offlineFarmerUid && (
+              <Button type="button" variant="secondary" disabled={isSubmitting} onClick={retryUserProfile}>
+                Retry loading profile
+              </Button>
+            )}
+            <Button type="button" variant="ghost" disabled={isSubmitting} onClick={logout}>Sign out</Button>
+          </div>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
@@ -111,7 +125,13 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <Button type="submit" fullWidth isLoading={isSubmitting} size="lg">
+          <Button
+            type="submit"
+            fullWidth
+            isLoading={!error && (isSubmitting || loading)}
+            disabled={isSubmitting || loading}
+            size="lg"
+          >
             Sign in
           </Button>
         </form>

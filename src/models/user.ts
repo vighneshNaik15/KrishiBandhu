@@ -7,6 +7,8 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  state?: string;
+  district?: string;
   role: UserRole;
   profileImageUrl?: string;
   isActive: boolean;
@@ -20,5 +22,7 @@ export interface CreateUserData {
   name: string;
   email: string;
   phone?: string;
+  state?: string;
+  district?: string;
   role: UserRole;
 }

@@ -1,9 +1,8 @@
 import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc, runTransaction,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, runTransaction,
   query, where, orderBy, limit, serverTimestamp, arrayUnion, Timestamp,
 } from 'firebase/firestore';
-import { auth } from '@/lib/firebase/config';
-import { db } from '@/lib/firebase/config';
+import { auth, db } from '@/lib/firebase/config';
 import { COLLECTIONS, JOBS_PER_PAGE } from '@/lib/constants';
 import type { Job, JobApplication, JobStatus, JobCategory } from '@/models/job';
 
@@ -55,7 +54,7 @@ export const jobService = {
       status,
       statusHistory: arrayUnion({
         status,
-        changedAt: serverTimestamp(),
+        changedAt: Timestamp.now(),
         changedBy: currentUser.uid,
         ...(note ? { note } : {}),
       }),
@@ -93,13 +92,33 @@ export const jobService = {
     return snap.docs.map(d => ({ applicationId: d.id, ...d.data() } as JobApplication));
   },
 
+  async getWorkerApplication(jobId: string, workerId: string): Promise<JobApplication | null> {
+    const snap = await getDocs(query(
+      collection(db, COLLECTIONS.JOB_APPLICATIONS),
+      where('workerId', '==', workerId),
+      where('jobId', '==', jobId)
+    ));
+    const application = snap.docs.find(entry => entry.data().status === 'accepted') ?? snap.docs[0];
+    return application ? ({ ...application.data(), applicationId: application.id } as JobApplication) : null;
+  },
+
   async applyForJob(data: Omit<JobApplication, 'applicationId' | 'appliedAt' | 'updatedAt' | 'status'>): Promise<string> {
-    const ref = await addDoc(collection(db, COLLECTIONS.JOB_APPLICATIONS), {
-      ...data,
-      status: 'pending',
-      appliedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    const existing = await this.getWorkerApplication(data.jobId, data.workerId);
+    if (existing) return existing.applicationId;
+
+    const ref = doc(db, COLLECTIONS.JOB_APPLICATIONS, `${data.jobId}:${data.workerId}`);
+    try {
+      await setDoc(ref, {
+        ...data,
+        status: 'pending',
+        appliedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      const saved = await this.getWorkerApplication(data.jobId, data.workerId).catch(() => null);
+      if (!saved) throw error;
+      return saved.applicationId;
+    }
     return ref.id;
   },
 
@@ -120,6 +139,9 @@ export const jobService = {
         const job = await transaction.get(jobRef);
         if (!job.exists()) throw new Error('The job no longer exists.');
         const jobData = job.data() as Job;
+        if (jobData.status !== 'published' && jobData.status !== 'applications_open') {
+          throw new Error('This job is no longer accepting applications.');
+        }
         const selectedWorkerIds = jobData.selectedWorkerIds ?? [];
         const selectedApplicationIds = jobData.selectedApplicationIds ?? [];
         const requiredCount = jobData.resourcesRequired ?? jobData.workersRequired;
@@ -144,7 +166,7 @@ export const jobService = {
             status: nextStatus,
             statusHistory: arrayUnion({
               status: nextStatus,
-              changedAt: serverTimestamp(),
+              changedAt: Timestamp.now(),
               changedBy: currentUser.uid,
             }),
           });

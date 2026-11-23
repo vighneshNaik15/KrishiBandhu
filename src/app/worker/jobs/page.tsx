@@ -6,7 +6,6 @@ import { Search, MapPin, Calendar, Users, IndianRupee } from 'lucide-react';
 import { jobService } from '@/services/jobService';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { Input, Select } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { ROUTES, KONKAN_DISTRICTS } from '@/lib/constants';
@@ -14,6 +13,7 @@ import { JOB_CATEGORY_LABELS, PAYMENT_TYPE_LABELS } from '@/models/job';
 import { formatDate, formatPrice } from '@/utils/formatters';
 import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 import type { Job } from '@/models/job';
+import { useAuth } from '@/features/auth/AuthContext';
 
 const GOA_DISTRICTS = KONKAN_DISTRICTS['Goa'] ?? [];
 const MH_DISTRICTS = KONKAN_DISTRICTS['Maharashtra'] ?? [];
@@ -25,17 +25,20 @@ function getJobLoadError(error: unknown): string {
 }
 
 export default function WorkerJobsPage() {
+  const { userProfile } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [district, setDistrict] = useState('');
+  const [district, setDistrict] = useState(() => userProfile?.district ?? '');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    let active = true;
     jobService.getPublished({ district: district || undefined })
-      .then(setJobs)
-      .catch((loadError: unknown) => setError(getJobLoadError(loadError)))
-      .finally(() => setLoading(false));
+      .then(result => { if (active) setJobs(result); })
+      .catch((loadError: unknown) => { if (active) setError(getJobLoadError(loadError)); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [district]);
 
   const filtered = jobs.filter(j =>
@@ -54,6 +57,7 @@ export default function WorkerJobsPage() {
       {/* Filters */}
       <div className="flex gap-3 flex-col sm:flex-row">
         <Input
+          aria-label="Search jobs"
           placeholder="Search jobs by title or category..."
           leftIcon={<Search className="w-4 h-4"/>}
           value={search}
@@ -61,6 +65,7 @@ export default function WorkerJobsPage() {
           className="flex-1"
         />
         <Select
+          aria-label="District"
           options={districtOptions}
           value={district}
           onChange={e => { setDistrict(e.target.value); setLoading(true); setError(null); }}
@@ -97,7 +102,7 @@ export default function WorkerJobsPage() {
                       {job.paymentAmount && <span className="flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5 text-primary-500"/> {formatPrice(job.paymentAmount)} {PAYMENT_TYPE_LABELS[job.paymentType]}</span>}
                     </div>
                   </div>
-                  <Button size="sm" variant="primary" className="shrink-0">Apply</Button>
+                  <span className="shrink-0 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white">View job</span>
                 </div>
               </Card>
             </Link>

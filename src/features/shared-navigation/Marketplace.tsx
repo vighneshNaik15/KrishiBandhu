@@ -91,7 +91,9 @@ export default function MarketplacePage({ marketplace = ROUTES.MARKETPLACE }: { 
     !searchTerm ||
     p.name.toLocaleLowerCase().includes(searchTerm) ||
     p.description?.toLocaleLowerCase().includes(searchTerm) ||
-    p.farmerDistrict?.toLocaleLowerCase().includes(searchTerm)
+    p.farmerName?.toLocaleLowerCase().includes(searchTerm) ||
+    p.farmerDistrict?.toLocaleLowerCase().includes(searchTerm) ||
+    p.farmerState?.toLocaleLowerCase().includes(searchTerm)
   );
 
   return (
@@ -105,6 +107,7 @@ export default function MarketplacePage({ marketplace = ROUTES.MARKETPLACE }: { 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
         <Input
+          aria-label="Search marketplace"
           placeholder="Search products, farmers, locations..."
           leftIcon={<Search className="w-4 h-4"/>}
           value={search}
@@ -112,6 +115,7 @@ export default function MarketplacePage({ marketplace = ROUTES.MARKETPLACE }: { 
           className="flex-1"
         />
         <Select
+          aria-label="Product category"
           options={CAT_OPTIONS}
           value={category}
           onChange={e => changeCategory(e.target.value)}

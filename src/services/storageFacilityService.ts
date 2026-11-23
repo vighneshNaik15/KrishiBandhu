@@ -24,6 +24,7 @@ import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 
 const DIRECTORY_CONFIG_ID = '_directory-config';
 const facilityCollection = collection(db, COLLECTIONS.STORAGE_FACILITIES);
+const importedLeadIds = new Set(PROVISIONAL_GOAN_FACILITIES.map(facility => facility.facilityId));
 
 function getFirestoreErrorCode(error: unknown): string | null {
   if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') {
@@ -119,6 +120,7 @@ export const storageFacilityService = {
       return { facilities: sourceFacilities };
     }
 
+    const sourceOnlyFacilities = sourceFacilities.filter(facility => !importedLeadIds.has(facility.facilityId));
     try {
       const snapshot = await getDocs(query(
         facilityCollection,
@@ -128,13 +130,13 @@ export const storageFacilityService = {
       ));
       return {
         facilities: mergeFacilities(
-          sourceFacilities,
+          sourceOnlyFacilities,
           snapshot.docs.map((entry) => mapFacility(entry.id, entry.data()))
         ),
       };
     } catch (error) {
       if (canUseBundledDirectory(error)) {
-        return { facilities: sourceFacilities, warning: getDirectoryWarning(error) };
+        return { facilities: sourceOnlyFacilities, warning: getDirectoryWarning(error) };
       }
       throw error;
     }

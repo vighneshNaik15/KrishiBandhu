@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Briefcase } from 'lucide-react';
@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/Card';
 import { ROUTES, KONKAN_DISTRICTS, INDIAN_STATES } from '@/lib/constants';
 import { JOB_CATEGORY_LABELS, PAYMENT_TYPE_LABELS, type JobCategory, type PaymentType } from '@/models/job';
 import type { Farm } from '@/models/farm';
-import { getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
+import { getFirebaseLoadErrorMessage, getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
 
 const schema = z.object({
   title: z.string().min(5, 'Job title must be at least 5 characters'),
@@ -52,19 +52,23 @@ export default function NewJobPage() {
   const router = useRouter();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [farmError, setFarmError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userProfile?.uid) {
-      farmService.getByFarmer(userProfile.uid).then(setFarms).catch(console.error);
-    }
+    if (!userProfile?.uid) return;
+    let active = true;
+    farmService.getByFarmer(userProfile.uid)
+      .then(result => { if (active) setFarms(result); })
+      .catch(loadError => { if (active) setFarmError(getFirebaseLoadErrorMessage(loadError, 'Saved farms')); });
+    return () => { active = false; };
   }, [userProfile?.uid]);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormInput, unknown, FormData>({
+  const { register, handleSubmit, control, setValue, formState: { errors, isSubmitting } } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
     defaultValues: { state: 'Goa', paymentType: 'daily', publishNow: true, workersRequired: 1 },
   });
 
-  const watchedState = watch('state');
+  const [watchedState, startDate] = useWatch({ control, name: ['state', 'startDate'] });
   const konkanDistricts = KONKAN_DISTRICTS[watchedState];
   const districtOptions = konkanDistricts?.map(d => ({ value: d, label: d })) ?? [];
 
@@ -123,6 +127,7 @@ export default function NewJobPage() {
             {farms.length > 0 && (
               <Select label="Farm (optional)" options={[{ value: '', label: 'No specific farm' }, ...farms.map(f => ({ value: f.farmId, label: f.name }))]} {...register('farmId')} />
             )}
+            {farmError && <p className="text-sm text-amber-800">{farmError} You can still post without linking a farm.</p>}
           </div>
         </Card>
 
@@ -149,7 +154,7 @@ export default function NewJobPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input label="Start date" type="date" required error={errors.startDate?.message} {...register('startDate')} />
-              <Input label="End date (optional)" type="date" min={watch('startDate') || undefined} error={errors.endDate?.message} {...register('endDate')} />
+              <Input label="End date (optional)" type="date" min={startDate || undefined} error={errors.endDate?.message} {...register('endDate')} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Select label="Payment type" required options={paymentOptions} error={errors.paymentType?.message} {...register('paymentType')} />

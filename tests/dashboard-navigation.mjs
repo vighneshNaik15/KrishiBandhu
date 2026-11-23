@@ -85,7 +85,7 @@ try {
     }
     if (role === 'buyer') {
       await nav().getByRole('link', { name: 'Marketplace', exact: true }).click();
-      await page.getByRole('link', { name: /Navigation test coconut/ }).click();
+      await page.locator(`a[href="/buyer/marketplace/${exampleProduct}"]`).click();
       await assertPath('/buyer/marketplace/' + exampleProduct);
       assert.equal(await active().innerText(), 'Marketplace');
       await page.reload();

@@ -23,7 +23,7 @@ export async function getCropModelStatuses(): Promise<CropModelStatus[]> {
     throw new Error('Set NEXT_PUBLIC_CROP_DOCTOR_API_URL to the running inference service.');
   }
 
-  const response = await fetch(`${inferenceUrl}/models`, { cache: 'no-store' });
+  const response = await fetch(`${inferenceUrl}/models`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
   if (!response.ok) {
     throw new Error(`The inference service returned HTTP ${response.status} while loading model status.`);
   }
@@ -52,6 +52,7 @@ export async function analyzeCropImage(
     method: 'POST',
     headers: { Authorization: `Bearer ${idToken}` },
     body,
+    signal: AbortSignal.timeout(45_000),
   });
   const result = await response.json().catch(() => null) as
     | CropDiseasePrediction

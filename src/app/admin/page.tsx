@@ -5,23 +5,27 @@ import Link from 'next/link';
 import { Users, Warehouse } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { StatCard, Card } from '@/components/ui/Card';
+import { Alert } from '@/components/ui/Alert';
+import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 import { ROUTES } from '@/lib/constants';
 import type { User } from '@/models/user';
 
 export default function AdminDashboardPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     userService.listAll(100)
       .then(setUsers)
-      .catch(console.error)
+      .catch(loadError => setError(getFirebaseLoadErrorMessage(loadError, 'Recent users')))
       .finally(() => setLoading(false));
   }, []);
 
   const farmers = users.filter(u => u.role === 'farmer');
   const workers = users.filter(u => u.role === 'worker');
   const buyers = users.filter(u => u.role === 'buyer');
+  const unavailable = loading || Boolean(error);
 
   const quickLinks = [
     { label: 'Harvest & Storage Review', href: ROUTES.ADMIN_HARVEST_SERVICES, icon: Warehouse },
@@ -31,14 +35,15 @@ export default function AdminDashboardPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-heading text-neutral-900">Admin Dashboard</h1>
-        <p className="text-sm text-neutral-500 mt-1">KrishiBandhu platform overview.</p>
+        <p className="text-sm text-neutral-500 mt-1">Overview of the 100 most recent accounts.</p>
       </div>
 
+      {error && <Alert variant="error">{error}</Alert>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Users" value={loading ? '—' : users.length} icon={<Users className="w-5 h-5" />} accentColor="blue" />
-        <StatCard label="Farmers" value={loading ? '—' : farmers.length} icon={<Users className="w-5 h-5" />} accentColor="green" />
-        <StatCard label="Workers" value={loading ? '—' : workers.length} icon={<Users className="w-5 h-5" />} accentColor="amber" />
-        <StatCard label="Buyers" value={loading ? '—' : buyers.length} icon={<Users className="w-5 h-5" />} accentColor="blue" />
+        <StatCard label="Recent Users" value={unavailable ? '—' : users.length} icon={<Users className="w-5 h-5" />} accentColor="blue" />
+        <StatCard label="Farmers" value={unavailable ? '—' : farmers.length} icon={<Users className="w-5 h-5" />} accentColor="green" />
+        <StatCard label="Workers" value={unavailable ? '—' : workers.length} icon={<Users className="w-5 h-5" />} accentColor="amber" />
+        <StatCard label="Buyers" value={unavailable ? '—' : buyers.length} icon={<Users className="w-5 h-5" />} accentColor="blue" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
