@@ -1,0 +1,66 @@
+[
+  {
+    "collectionGroup": "serviceListings",
+    "queryScope": "COLLECTION",
+    "fields": [
+      {
+        "fieldPath": "isActive",
+        "order": "ASCENDING"
+      },
+      {
+        "fieldPath": "verificationStatus",
+        "order": "ASCENDING"
+      },
+      {
+        "fieldPath": "createdAt",
+        "order": "DESCENDING"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "serviceListings",
+    "queryScope": "COLLECTION",
+    "fields": [
+      {
+        "fieldPath": "providerId",
+        "order": "ASCENDING"
+      },
+      {
+        "fieldPath": "createdAt",
+        "order": "DESCENDING"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "storageFacilities",
+    "queryScope": "COLLECTION",
+    "fields": [
+      {
+        "fieldPath": "facilityKind",
+        "order": "ASCENDING"
+      },
+      {
+        "fieldPath": "isActive",
+        "order": "ASCENDING"
+      },
+      {
+        "fieldPath": "verificationStatus",
+        "order": "ASCENDING"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "cropDiseaseAnalyses",
+    "queryScope": "COLLECTION",
+    "fields": [
+      {
+        "fieldPath": "farmerUid",
+        "order": "ASCENDING"
+      },
+      {
+        "fieldPath": "assessedAt",
+        "order": "DESCENDING"
+      }
+    ]
+  }
+]

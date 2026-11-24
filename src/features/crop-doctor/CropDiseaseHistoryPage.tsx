@@ -46,6 +46,7 @@ export function CropDiseaseHistoryPage() {
     cropDiseaseService.getByFarmer(farmerUid)
       .then(async (reports) => {
         const reportsWithImages = await Promise.all(reports.map(async (report) => {
+          if (!report.imageStoragePath) return { ...report, imageUrl: null, imageError: false };
           try {
             const blob = await cropDiseaseService.getImage(report);
             if (!active) return { ...report, imageUrl: null, imageError: false };
@@ -106,7 +107,7 @@ export function CropDiseaseHistoryPage() {
         <Card>
           <EmptyState
             title="No saved reports"
-            description="Previously saved assessments appear here. Saving new reports is currently disabled."
+            description="Choose Save report after analyzing a crop to see its prediction details here."
             action={
               <Link href={ROUTES.FARMER_CROP_DOCTOR} className="text-sm font-semibold text-primary-700">
                 Start an assessment

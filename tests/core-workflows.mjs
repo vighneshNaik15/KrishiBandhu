@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 const { chromium } = await import(process.env.KB_PLAYWRIGHT_MODULE);
-const origin = 'http://127.0.0.1:3200';
+const origin = 'http://localhost:3200';
 const password = 'Disposable-test-only-358!';
 const suffix = randomUUID().slice(0, 8);
 const date = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
@@ -26,7 +26,7 @@ const path = (page, route) => page.waitForURL(url => url.pathname === route);
 
 async function testPage() {
   const context = await browser.newContext({ viewport: { width: 390, height: 800 }, serviceWorkers: 'block' });
-  await context.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1'
+  await context.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname)
     ? route.continue()
     : route.abort());
   const page = await context.newPage();
@@ -48,7 +48,10 @@ async function register(role) {
   await fill(page, 'Password', password);
   await fill(page, 'Confirm password', password);
   await page.locator('form button[type="submit"]').click();
-  await path(page, `/${role}`);
+  await path(page, `/${role}`).catch(async error => {
+    console.error(await page.getByRole('alert').allTextContents(), await page.locator('input:invalid').evaluateAll(inputs => inputs.map(input => input.name)));
+    throw error;
+  });
   return { page, name, email };
 }
 
@@ -131,7 +134,19 @@ try {
   await buyer.reload();
   await heading(buyer, productName).waitFor();
   await buyer.getByText('₹149.50', { exact: true }).waitFor();
-  await buyer.getByText('Online order requests are currently unavailable.').waitFor();
+  await button(buyer, 'Request order').click();
+  await buyer.getByText(/Your request is pending/).waitFor();
+  await go(farmer, '/farmer');
+  for (const label of ['My Farms', 'Active Products', 'Pending Orders', 'Total Orders']) {
+    const stat = farmer.locator('p').filter({ hasText: new RegExp('^' + label + '$') }).locator('..');
+    await stat.getByText('1', { exact: true }).waitFor();
+  }
+  await farmer.getByText(productName, { exact: true }).waitFor();
+  await go(farmer, '/farmer/orders');
+  await button(farmer, 'Accept').click();
+  await farmer.getByText('Accepted', { exact: true }).waitFor();
+  await go(buyer, '/buyer/orders');
+  await buyer.getByText('Accepted', { exact: true }).waitFor();
   console.log('Decimal-priced product listing, seller search, and buyer product reload passed');
 
   await go(farmer, '/farmer/jobs/new');
@@ -224,19 +239,45 @@ try {
   await worker.getByText('Approved', { exact: true }).waitFor();
   console.log('Worker location and provider submission, admin approval, and reload passed');
 
+  await go(farmer, '/farmer/harvest-services');
+  await fill(farmer, 'Search services', workerName);
+  await select(farmer, 'District', 'North Goa');
+  await select(farmer, 'Service category', 'Tractor Rental');
+  await heading(farmer, workerName).waitFor();
+  await button(farmer, 'Map').click();
+  await farmer.locator('.leaflet-container').waitFor();
+  await button(farmer, 'List').click();
+  await button(worker, 'Edit listing').click();
+  await fill(worker, 'Availability', 'Weekends with prior confirmation');
+  await button(worker, 'Save listing changes').click();
+  await worker.getByText('Pending admin review', { exact: true }).waitFor();
+
   const storageName = 'Tropical Mushrooms (Goa) Pvt. Ltd.';
   const imported = heading(admin, storageName);
   if (!(await imported.count())) await button(admin, 'Import provisional leads').click();
   await imported.waitFor();
   const fixture = await fetch('http://127.0.0.1:8080/v1/projects/demo-krishibandhu/databases/(default)/documents/storageFacilities/tropical-mushrooms-goa?updateMask.fieldPaths=verificationStatus', {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
-    body: JSON.stringify({ fields: { verificationStatus: { stringValue: 'pending' } } }),
+    body: JSON.stringify({ fields: { verificationStatus: { stringValue: 'approved' } } }),
   });
   assert.ok(fixture.ok, await fixture.text());
   await go(farmer, '/farmer/harvest-services');
   await farmer.getByRole('tab', { name: 'Cold Storage Finder' }).click();
   await select(farmer, 'District', 'North Goa');
   await fill(farmer, 'Search storage', storageName);
+  await label(farmer, 'Storage type').selectOption({ index: 1 });
+  await label(farmer, 'Storage type').selectOption('');
+  for (const [field, value] of [['Accepted commodity','missing-crop'], ['Minimum available capacity','999999'], ['Maximum price','1']]) {
+    await fill(farmer, field, value);
+    await heading(farmer, 'No records match these filters').waitFor();
+    await fill(farmer, field, '');
+  }
+  await label(farmer, 'Booking availability').selectOption('available');
+  await heading(farmer, 'No records match these filters').waitFor();
+  await label(farmer, 'Booking availability').selectOption('');
+  await button(farmer, 'Map').click();
+  await farmer.locator('.leaflet-container').waitFor();
+  await button(farmer, 'List').click();
   await button(farmer, 'Send enquiry').click();
   await fill(farmer, 'Commodity', 'Coconuts');
   await fill(farmer, 'Quantity', '25');
@@ -271,7 +312,11 @@ try {
     await button(farmer, 'Analyze Crop').click();
     await farmer.getByText(/possible model label/).waitFor();
     await button(farmer, 'Save report').waitFor();
-    assert.equal(await button(farmer, 'Save report').isEnabled(), false);
+    await button(farmer, 'Save report').click();
+    await farmer.getByText('Report saved', { exact: true }).waitFor();
+    await go(farmer, '/farmer/crop-doctor/history');
+    await farmer.reload();
+    await farmer.getByText(/top model score/).first().waitFor();
     console.log('Crop Doctor browser prediction passed');
   }
 

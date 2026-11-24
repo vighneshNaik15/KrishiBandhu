@@ -72,7 +72,7 @@ The Gemini key must remain server-side and must not use a `NEXT_PUBLIC_` prefix.
 
 ### Working without persistent photo storage
 
-Crop Doctor uses the separate Python service to analyze the selected image. The app previews the image and shows the assessment on the current page. **Save report** is disabled while persistent photo storage is unavailable. Existing assessments remain in Disease History, and previously stored photos are shown when they are accessible.
+Crop Doctor uses the separate Python service to analyze the selected image. The app previews the image and shows the assessment on the current page. **Save report** stores private prediction metadata in Firestore after the reviewed rules and index are active. The selected photo is used for inference only. Existing assessments remain in Disease History, and previously stored photos are shown when they are accessible.
 
 Marketplace listings can be created and edited without photos. Harvest requests can be published using text instructions. The app retains historical image references and shows a placeholder or message when images are unavailable. No new photo is stored through these flows.
 

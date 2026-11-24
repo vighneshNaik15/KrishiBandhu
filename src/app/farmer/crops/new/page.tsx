@@ -59,6 +59,7 @@ export default function NewCropPage() {
 
   const farmerId = userProfile?.uid;
   const [farmResult, setFarmResult] = useState<{ uid: string; farms: Farm[]; error?: string }>();
+  const [farmRefresh, setFarmRefresh] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function NewCropPage() {
       if (active) setFarmResult({ uid: farmerId, farms: [], error: getFirebaseLoadErrorMessage(loadError, 'Farms') });
     });
     return () => { active = false; };
-  }, [farmerId]);
+  }, [farmerId, farmRefresh]);
 
   const currentFarms = farmResult?.uid === farmerId ? farmResult : undefined;
   const farmOptions = currentFarms?.farms.map(farm => ({ value: farm.farmId, label: farm.name })) ?? [];
@@ -128,7 +129,7 @@ export default function NewCropPage() {
             {!currentFarms ? <p role="status" className="text-sm text-neutral-600">Loading farms...</p>
               : currentFarms.error ? <Alert variant="error">{currentFarms.error}</Alert>
               : farmOptions.length === 0 ? (
-                <Alert variant="info">Save a farm before adding a crop. <Link href={ROUTES.FARMER_FARMS} className="underline">Open My Farms</Link></Alert>
+                <Alert variant="info">A crop needs a synchronized farm. If your farm is pending or failed, open My Farms and retry sync, then return here. <Link href={ROUTES.FARMER_FARMS} target="_blank" rel="noopener" className="underline">Open My Farms in a new tab</Link>. <button type="button" className="underline" onClick={() => setFarmRefresh(value => value + 1)}>Refresh farm list</button></Alert>
               ) : (
               <Select label="Farm" required options={farmOptions} placeholder="Select a farm" error={errors.farmId?.message} {...register('farmId')} />
             )}
@@ -167,6 +168,7 @@ export default function NewCropPage() {
         {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
         <div className="flex gap-3">
           <Button type="button" variant="secondary" onClick={() => router.push(ROUTES.FARMER_CROPS)}>Cancel</Button>
+          <span role="status" className="text-sm text-neutral-600">{currentFarms && !farmOptions.length && 'Save Crop requires a synchronized farm.'}</span>
           <Button type="submit" disabled={!farmOptions.length} isLoading={isSubmitting} leftIcon={<Sprout className="w-4 h-4"/>}>Save Crop</Button>
         </div>
       </form>

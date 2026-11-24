@@ -1,5 +1,5 @@
 import {
-  addDoc,
+  addDoc, deleteField,
   collection,
   doc,
   getDocs,
@@ -80,10 +80,12 @@ export const serviceListingService = {
 
   async updateOwn(
     listingId: string,
-    data: Partial<Omit<CreateServiceListing, 'providerId'>>
+    data: Omit<CreateServiceListing, 'providerId'>
   ): Promise<void> {
     await updateDoc(doc(db, COLLECTIONS.SERVICE_LISTINGS, listingId), {
       ...data,
+      chargeAmount: data.chargeAmount ?? deleteField(),
+      village: data.village ?? deleteField(),
       verificationStatus: 'pending',
       updatedAt: serverTimestamp(),
     });

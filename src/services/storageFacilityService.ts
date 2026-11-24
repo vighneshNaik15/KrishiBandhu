@@ -116,17 +116,15 @@ export const storageFacilityService = {
       throw error;
     }
 
-    if (!directoryIsSeeded) {
-      return { facilities: sourceFacilities };
-    }
-
-    const sourceOnlyFacilities = sourceFacilities.filter(facility => !importedLeadIds.has(facility.facilityId));
+    const sourceOnlyFacilities = directoryIsSeeded
+      ? sourceFacilities.filter(facility => !importedLeadIds.has(facility.facilityId))
+      : sourceFacilities;
     try {
       const snapshot = await getDocs(query(
         facilityCollection,
         where('facilityKind', 'in', ['storage_candidate', 'market_warehouse']),
         where('isActive', '==', true),
-        where('verificationStatus', 'in', ['pending', 'approved'])
+        where('verificationStatus', '==', 'approved')
       ));
       return {
         facilities: mergeFacilities(

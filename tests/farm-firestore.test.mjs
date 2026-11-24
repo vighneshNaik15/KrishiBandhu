@@ -81,11 +81,20 @@ test('farm service round-trips mapped and legacy farms and enforces farmer owner
       price: 25, unit: 'piece', minimumOrderQuantity: 1, quantityAvailable: 4,
       status: 'active', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     };
-    const forgedImages = ['https://example.test/forged-image.jpg'];
-    await assert.rejects(setDoc(product, { ...listing, images: forgedImages }), { code: 'permission-denied' });
-    await setDoc(product, { ...listing, images: [] });
-    await assert.rejects(updateDoc(product, { images: forgedImages, updatedAt: serverTimestamp() }),
-      { code: 'permission-denied' });
+    if (process.env.KB_RULES_VARIANT === 'targeted') {
+      const images = ['https://example.test/legacy.jpg'];
+      await setDoc(product, { ...listing, images });
+      const replacement = ['https://example.test/replacement.jpg'];
+      await updateDoc(product, { images: replacement, updatedAt: serverTimestamp() });
+      assert.deepEqual((await getDoc(product)).data().images, replacement);
+      await updateDoc(product, { images: [], updatedAt: serverTimestamp() });
+    } else {
+      const forgedImages = ['https://example.test/forged-image.jpg'];
+      await assert.rejects(setDoc(product, { ...listing, images: forgedImages }), { code: 'permission-denied' });
+      await setDoc(product, { ...listing, images: [] });
+      await assert.rejects(updateDoc(product, { images: forgedImages, updatedAt: serverTimestamp() }),
+        { code: 'permission-denied' });
+    }
     await updateDoc(product, { status: 'inactive', updatedAt: serverTimestamp() });
 
     const harvestId = await jobService.create({
@@ -209,7 +218,7 @@ test('farm service round-trips mapped and legacy farms and enforces farmer owner
       transaction.set(assessment, {
         assessmentId, farmerUid: owner, selectedCrop: 'rice', predictedDisease: 'Blast',
         modelId: 'rice-mobilenetv2-v1', modelVersion: 'a'.repeat(64), modelScore: 0.7,
-        alternativeScores: [], imageStoragePath: `cropDiseaseReports/${owner}/${assessmentId}/image.jpg`,
+        alternativeScores: [],
         assessedAt: serverTimestamp(), status: 'unverified',
       });
     }, { maxAttempts: 1 });

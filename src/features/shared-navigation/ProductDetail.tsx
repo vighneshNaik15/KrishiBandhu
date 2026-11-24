@@ -14,6 +14,40 @@ import { ROUTES } from '@/lib/constants';
 import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 import type { Product } from '@/models/product';
 
+import { useAuth } from '@/features/auth/AuthContext';
+import { orderService } from '@/services/orderService';
+import { Button } from '@/components/ui/Button';
+
+function OrderRequest({ product }: { product: Product }) {
+  const { userProfile } = useAuth();
+  const [quantity, setQuantity] = useState(String(product.minimumOrderQuantity));
+  const [state, setState] = useState<'ready' | 'pending' | 'sent'>('ready');
+  const [error, setError] = useState('');
+  if (userProfile?.role !== 'buyer') return <Alert variant="info">Sign in with a buyer account to request this product.</Alert>;
+  if (state === 'sent') return <Alert variant="success">Your request is pending. <Link href={ROUTES.BUYER_ORDERS}>View My Orders</Link></Alert>;
+  return <form className="space-y-3" onSubmit={async event => {
+    event.preventDefault();
+    if (state !== 'ready') return;
+    setError('');
+    setState('pending');
+    try {
+      await orderService.request(userProfile, product, Number(quantity));
+      setState('sent');
+    } catch {
+      setError('The request could not be confirmed. Check My Orders and current availability before retrying.');
+      setState('ready');
+    }
+  }}>
+    <label className="block">Quantity ({product.unit})
+      <input className="block rounded border p-2" required type="number" min={product.minimumOrderQuantity}
+        max={product.quantityAvailable} step="any" value={quantity} onChange={event => setQuantity(event.target.value)} />
+    </label>
+    <p className="text-sm">The farmer confirms availability when accepting your request.</p>
+    {error && <Alert variant="error">{error}</Alert>}
+    <Button type="submit" disabled={state === 'pending' || product.quantityAvailable < product.minimumOrderQuantity}>Request order</Button>
+  </form>;
+}
+
 export default function ProductDetailPage({ marketplace = ROUTES.MARKETPLACE }: { marketplace?: string } = {}) {
   const params = useParams();
   const productId = params.productId as string;
@@ -110,7 +144,7 @@ export default function ProductDetailPage({ marketplace = ROUTES.MARKETPLACE }: 
           </div>
 
           {product.status === 'active' ? (
-            <Alert variant="info">Online order requests are currently unavailable.</Alert>
+            <OrderRequest key={product.productId} product={product} />
           ) : (
             <Alert variant="warning">This product is currently unavailable.</Alert>
           )}

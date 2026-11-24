@@ -16,6 +16,10 @@ import { ROUTES } from '@/lib/constants';
 import { formatDate, formatPrice } from '@/utils/formatters';
 import { cropDiseaseService } from '@/services/cropDiseaseService';
 
+import { db } from '@/lib/firebase/config';
+import { FarmCache } from '@/features/farms/farmCache';
+import { liveQuery } from 'dexie';
+
 async function loadResource<T>(request: Promise<T[]>, label: string) {
   try {
     return { data: await request, error: null };
@@ -41,6 +45,15 @@ export default function FarmerDashboardPage() {
 
 function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string }) {
   const [dashboard, setDashboard] = useState<Awaited<ReturnType<typeof loadDashboard>>>();
+  const [queued, setQueued] = useState<number>();
+  useEffect(() => {
+    const cache = new FarmCache(db.app.options.projectId ?? '', farmerId);
+    const subscription = liveQuery(async () => {
+      const rows = await cache.queue.toArray();
+      return new Set(rows.filter(row => row.kind === 'create').map(row => row.farmId)).size;
+    }).subscribe({ next: setQueued, error: () => setQueued(undefined) });
+    return () => { subscription.unsubscribe(); cache.close(); };
+  }, [farmerId]);
   const [attempt, setAttempt] = useState(0);
   const [retrying, setRetrying] = useState(false);
 
@@ -91,6 +104,7 @@ function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string })
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           label="My Farms"
+          subtitle={queued === undefined ? 'Synchronized farms' : `Synchronized farms · ${queued} queued for creation`}
           value={loading || dashboard?.farms.error ? '—' : farms.length}
           icon={<TreePalm className="w-5 h-5" />}
           accentColor="green"

@@ -75,7 +75,7 @@ export default function FarmerOrdersPage() {
           <EmptyState
             icon={<ShoppingBag className="w-8 h-8"/>}
             title="No orders yet"
-            description="Online order requests are currently unavailable."
+            description="New order requests will appear here."
           />
         </Card>
       ) : (

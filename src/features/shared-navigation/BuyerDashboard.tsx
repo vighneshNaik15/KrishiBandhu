@@ -77,7 +77,7 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
         ) : error ? null : orders.length === 0 ? (
           <EmptyState
             title="No orders yet"
-            description="You can browse product listings. Online order requests are currently unavailable."
+            description="You can browse product listings. New order requests will appear here."
             action={<Link href={ROUTES.BUYER_MARKETPLACE}><Button size="sm">Browse Products</Button></Link>}
           />
         ) : (

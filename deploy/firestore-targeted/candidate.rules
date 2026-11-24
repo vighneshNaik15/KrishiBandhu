@@ -52,7 +52,7 @@ service cloud.firestore {
           'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'uid', 'name', 'email', 'phone', 'role', 'isActive', 'isVerified',
+          'uid', 'name', 'email', 'phone', 'role', 'isActive', 'isVerified', 'state', 'district',
           'createdAt', 'updatedAt'
         ])
         && data.uid == uid
@@ -61,6 +61,12 @@ service cloud.firestore {
         && data.email is string
         && data.email.size() > 2
         && (!('phone' in data) || data.phone is string)
+        && (!data.keys().hasAny(['state', 'district'])
+          || (data.role == 'worker'
+            && data.get('state', '') is string
+            && data.get('state', '').size() > 0
+            && data.get('district', '') is string
+            && data.get('district', '').size() > 0))
         && data.role in ['farmer', 'worker', 'buyer']
         && data.isActive == true
         && data.isVerified == false
@@ -281,7 +287,7 @@ service cloud.firestore {
         && changedOnly([
           'farmerName', 'farmerDistrict', 'farmerState', 'name', 'category',
           'description', 'price', 'unit', 'minimumOrderQuantity',
-          'quantityAvailable', 'district', 'state', 'images', 'tags',
+          'lastAcceptedOrderId', 'quantityAvailable', 'district', 'state', 'images', 'tags',
           'status', 'updatedAt'
         ])
         && request.resource.data.farmerId == resource.data.farmerId
@@ -312,8 +318,33 @@ service cloud.firestore {
     function validJobStatus(status) {
       return status in [
         'draft', 'published', 'applications_open', 'worker_selected',
-        'scheduled', 'in_progress', 'completed', 'cancelled', 'closed'
+        'scheduled', 'in_progress', 'completion_pending', 'completed',
+        'cancelled', 'closed'
       ];
+    }
+
+    function validHarvestJobCreate(data) {
+      return data.requestType == 'harvest_service'
+        && data.farmLocation is string
+        && data.farmLocation.size() >= 5
+        && data.approximateLandArea is number
+        && data.approximateLandArea > 0
+        && data.landAreaUnit in ['acres', 'hectares']
+        && data.cropType is string
+        && data.cropType.size() >= 2
+        && data.instructions is string
+        && data.instructions.size() >= 10
+        && data.resourceType in ['workers', 'machinery']
+        && data.resourcesRequired is number
+        && data.resourcesRequired > 0
+        && ((data.resourceType == 'workers'
+            && data.workersRequired == data.resourcesRequired)
+          || (data.resourceType == 'machinery'
+            && data.workersRequired == 0))
+        && data.state == 'Goa'
+        && data.district in ['North Goa', 'South Goa']
+        && (!('imagePaths' in data)
+          || (data.imagePaths is list && data.imagePaths.size() <= 3));
     }
 
     function validJobCreate() {
@@ -329,7 +360,10 @@ service cloud.firestore {
           'farmName', 'title', 'description', 'category', 'workersRequired',
           'district', 'state', 'village', 'taluka', 'startDate', 'endDate',
           'durationDays', 'paymentType', 'paymentAmount', 'paymentNotes',
-          'maxApplicants', 'status', 'selectedWorkerIds', 'statusHistory',
+          'maxApplicants', 'requestType', 'farmLocation', 'approximateLandArea',
+          'landAreaUnit', 'cropType', 'equipmentRequiredCount', 'resourceType',
+          'resourcesRequired', 'instructions', 'imagePaths', 'status',
+          'selectedWorkerIds', 'selectedApplicationIds', 'statusHistory',
           'createdAt', 'updatedAt'
         ])
         && isFarmer()
@@ -338,9 +372,18 @@ service cloud.firestore {
         && validJobStatus(data.status)
         && data.status in ['draft', 'published', 'applications_open']
         && data.workersRequired is number
-        && data.workersRequired > 0
+        && (data.workersRequired > 0
+          || (data.requestType == 'harvest_service'
+            && data.resourceType == 'machinery'
+            && data.workersRequired == 0))
+        && (!('requestType' in data)
+          || validHarvestJobCreate(data))
         && data.selectedWorkerIds is list
         && data.selectedWorkerIds.size() == 0
+        && (!('selectedApplicationIds' in data)
+          || (data.selectedApplicationIds is list
+            && data.selectedApplicationIds.size() == 0))
+        && data.startDate is timestamp
         && data.statusHistory is list
         && data.createdAt == request.time
         && data.updatedAt == request.time;
@@ -419,6 +462,12 @@ service cloud.firestore {
         || (from == 'dispatched' && to == 'delivered');
     }
 
+    function recentHistoryTimestamp(value) {
+      return value is timestamp
+        && value >= request.time - duration.value(5, 'm')
+        && value <= request.time + duration.value(5, 'm');
+    }
+
     function validOrderHistoryAppend() {
       let oldHistory = resource.data.statusHistory;
       let newHistory = request.resource.data.statusHistory;
@@ -431,7 +480,7 @@ service cloud.firestore {
         && newEntry.keys().hasAll(['status', 'changedAt', 'changedBy'])
         && newEntry.keys().hasOnly(['status', 'changedAt', 'changedBy', 'note'])
         && newEntry.status == request.resource.data.status
-        && newEntry.changedAt == request.time
+        && recentHistoryTimestamp(newEntry.changedAt)
         && newEntry.changedBy == request.auth.uid
         && (!('note' in newEntry) || newEntry.note is string);
     }
@@ -476,10 +525,124 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function selectedWorker(data) {
+      return signedIn()
+        && data.selectedWorkerIds is list
+        && data.selectedWorkerIds.hasAny([request.auth.uid]);
+    }
+
+    function acceptedSelectionIsValid(jobId) {
+      let oldApplicationIds = 'selectedApplicationIds' in resource.data
+        ? resource.data.selectedApplicationIds : [];
+      let oldWorkerIds = resource.data.selectedWorkerIds;
+      let applicationId = request.resource.data.selectedApplicationIds[oldApplicationIds.size()];
+      let workerId = request.resource.data.selectedWorkerIds[oldWorkerIds.size()];
+      let selectedApplicationPath =
+        /databases/$(database)/documents/jobApplications/$(applicationId);
+      return request.resource.data.selectedWorkerIds is list
+        && request.resource.data.selectedApplicationIds is list
+        && request.resource.data.selectedWorkerIds
+          == oldWorkerIds.concat([workerId])
+        && request.resource.data.selectedApplicationIds.size()
+          == oldApplicationIds.size() + 1
+        && request.resource.data.selectedApplicationIds
+          == oldApplicationIds.concat([applicationId])
+        && request.resource.data.selectedWorkerIds.size()
+          == request.resource.data.selectedApplicationIds.size()
+        && existsAfter(selectedApplicationPath)
+        && getAfter(selectedApplicationPath).data.jobId == jobId
+        && getAfter(selectedApplicationPath).data.farmerId == request.auth.uid
+        && getAfter(selectedApplicationPath).data.workerId == workerId
+        && getAfter(selectedApplicationPath).data.status == 'accepted';
+    }
+
+    function validJobHistoryAppend() {
+      let oldHistory = resource.data.get('statusHistory', []);
+      let newHistory = request.resource.data.statusHistory;
+      let newEntry = newHistory[oldHistory.size()];
+      return oldHistory is list
+        && newHistory is list
+        && newHistory.size() == oldHistory.size() + 1
+        && oldHistory.concat([newEntry]) == newHistory
+        && newEntry is map
+        && newEntry.keys().hasAll(['status', 'changedAt', 'changedBy'])
+        && newEntry.keys().hasOnly(['status', 'changedAt', 'changedBy', 'note'])
+        && newEntry.status == request.resource.data.status
+        && recentHistoryTimestamp(newEntry.changedAt)
+        && newEntry.changedBy == request.auth.uid
+        && (!('note' in newEntry) || newEntry.note is string);
+    }
+
+    function validHarvestJobTransition(from, to) {
+      return (from == 'draft' && to == 'published')
+        || (from == 'published' && to == 'applications_open')
+        || (from in ['published', 'applications_open']
+          && to in ['worker_selected', 'cancelled', 'closed'])
+        || (from == 'worker_selected' && to in ['scheduled', 'cancelled'])
+        || (from == 'scheduled' && to == 'cancelled')
+        || (from == 'completion_pending' && to == 'completed');
+    }
+
+    function validWorkerJobProgress() {
+      return isWorker()
+        && resource.data.requestType == 'harvest_service'
+        && selectedWorker(resource.data)
+        && changedOnly(['status', 'statusHistory', 'updatedAt'])
+        && ((resource.data.status == 'scheduled'
+            && request.resource.data.status == 'in_progress')
+          || (resource.data.status == 'in_progress'
+            && request.resource.data.status == 'completion_pending'))
+        && validJobHistoryAppend()
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validServiceJobUpdate(jobId) {
+      let ownerUpdate = jobOwner(resource.data)
+        && changedOnly([
+          'farmerName', 'farmId', 'farmName', 'title', 'description',
+          'category', 'workersRequired', 'district', 'state', 'village',
+          'taluka', 'startDate', 'endDate', 'durationDays', 'paymentType',
+          'paymentAmount', 'paymentNotes', 'maxApplicants', 'requestType',
+          'farmLocation', 'approximateLandArea', 'landAreaUnit', 'cropType',
+          'equipmentRequiredCount', 'resourceType', 'resourcesRequired',
+          'instructions', 'imagePaths', 'status', 'selectedWorkerIds',
+          'selectedApplicationIds', 'statusHistory', 'updatedAt'
+        ])
+        && request.resource.data.farmerId == resource.data.farmerId
+        && request.resource.data.farmerUserId == resource.data.farmerUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validJobStatus(request.resource.data.status)
+        && request.resource.data.workersRequired is number
+        && (request.resource.data.workersRequired > 0
+          || (request.resource.data.requestType == 'harvest_service'
+            && request.resource.data.resourceType == 'machinery'
+            && request.resource.data.workersRequired == 0))
+        && request.resource.data.updatedAt == request.time
+        && (!('requestType' in request.resource.data)
+          || validHarvestJobCreate(request.resource.data))
+        && (request.resource.data.status == resource.data.status
+          ? request.resource.data.get('statusHistory', []) == resource.data.get('statusHistory', [])
+          : validJobHistoryAppend())
+        && (!('requestType' in request.resource.data)
+          || request.resource.data.requestType != 'harvest_service'
+          || request.resource.data.status == resource.data.status
+          || validHarvestJobTransition(resource.data.status, request.resource.data.status))
+        && (request.resource.data.selectedWorkerIds == resource.data.selectedWorkerIds
+          ? request.resource.data.get('selectedApplicationIds', [])
+            == resource.data.get('selectedApplicationIds', [])
+          : acceptedSelectionIsValid(jobId))
+        && request.resource.data.selectedWorkerIds.size()
+          <= ('resourcesRequired' in request.resource.data
+            ? request.resource.data.resourcesRequired
+            : request.resource.data.workersRequired);
+      return ownerUpdate || validWorkerJobProgress();
+    }
+
     match /jobs/{jobId} {
-      allow get, list: if publicJob(resource.data) || jobOwner(resource.data);
+      allow get, list: if publicJob(resource.data) || jobOwner(resource.data) || (isWorker() && selectedWorker(resource.data));
       allow create: if validJobCreate();
-      allow update: if validJobUpdate();
+      allow update: if validServiceJobUpdate(jobId)
+        || (resource.data.get('requestType', '') != 'harvest_service' && validJobUpdate());
       allow delete: if false;
     }
 
@@ -493,17 +656,70 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function validBuyerRequest(data) {
+      let product = get(/databases/$(database)/documents/products/$(data.productId)).data;
+      return data.keys().hasOnly(['requestVersion','productId','productName','productUnit','farmerId',
+          'farmerUserId','farmerName','buyerId','buyerName','quantity','unitPrice','totalAmount',
+          'status','statusHistory','createdAt','updatedAt'])
+        && data.requestVersion == 1 && data.productId is string
+        && data.buyerId == request.auth.uid && data.buyerName == get(userPath(request.auth.uid)).data.name
+        && product.status == 'active' && data.farmerId == product.farmerId
+        && data.farmerUserId == product.farmerUserId && data.farmerName == product.farmerName
+        && data.productName == product.name && data.productUnit == product.unit
+        && data.quantity is number && data.quantity > 0 && data.quantity >= product.minimumOrderQuantity
+        && data.quantity <= product.quantityAvailable && data.unitPrice == product.price
+        && data.totalAmount == data.quantity * data.unitPrice && data.status == 'pending'
+        && data.statusHistory == [] && data.createdAt == request.time && data.updatedAt == request.time;
+    }
+
+    function stockCommitted(orderId, order) {
+      let path = /databases/$(database)/documents/products/$(order.productId);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      return before.status == 'active' && before.farmerId == request.auth.uid
+        && before.quantityAvailable >= order.quantity && after.lastAcceptedOrderId == orderId
+        && after.quantityAvailable == before.quantityAvailable - order.quantity;
+    }
+
+    match /storageEnquiries/{enquiryId} {
+      allow get, list: if isAdmin()
+        || (isFarmer() && resource.data.farmerId == request.auth.uid);
+      allow create: if isFarmer()
+        && request.resource.data.keys().hasAll([
+          'facilityId', 'facilityName', 'farmerId', 'farmerName', 'commodity',
+          'quantity', 'quantityUnit', 'preferredStartDate', 'message',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'facilityId', 'facilityName', 'farmerId', 'farmerName', 'commodity',
+          'quantity', 'quantityUnit', 'preferredStartDate', 'durationDays',
+          'message', 'status', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.farmerId == request.auth.uid
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity > 0
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && changedOnly(['status', 'updatedAt'])
+        && request.resource.data.status in ['submitted', 'reviewed', 'closed']
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /orders/{orderId} {
       allow get, list: if (isBuyer()
           && resource.data.buyerId == request.auth.uid)
         || (isFarmer()
           && resource.data.farmerId == request.auth.uid);
 
-      // Order creation needs a trusted stock-reservation transaction first.
-      allow create: if false;
+      allow create: if isBuyer() && validBuyerRequest(request.resource.data);
       allow update: if isFarmer()
         && resource.data.farmerId == request.auth.uid
         && changedOnly(['status', 'statusHistory', 'updatedAt'])
+        && (resource.data.get('requestVersion', 0) != 1 || request.resource.data.status != 'accepted'
+          || stockCommitted(orderId, resource.data))
         && validOrderTransition(
           resource.data.status,
           request.resource.data.status
@@ -513,10 +729,153 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function validListingDetails(data) {
+      return data.providerName == get(userPath(request.auth.uid)).data.name
+        && data.taluka is string && data.taluka.size() >= 2 && data.taluka.size() <= 80
+        && data.get('village', '') is string && data.get('village', '').size() <= 80
+        && data.availability is string && data.availability.size() >= 3 && data.availability.size() <= 300
+        && data.description is string && data.description.size() >= 20 && data.description.size() <= 1000
+        && data.experienceYears is int && data.experienceYears >= 0 && data.experienceYears <= 80
+        && data.district in ['North Goa','South Goa']
+        && data.skills is list && data.skills.size() > 0 && data.equipment is list
+        && data.serviceCategories is list && data.serviceCategories.size() > 0
+        && data.chargeUnit in ['per_hour','per_day','per_job','negotiable']
+        && (!('chargeAmount' in data) || (data.chargeAmount is number && data.chargeAmount >= 1 && data.chargeAmount <= 10000000));
+    }
+
+    match /serviceListings/{listingId} {
+      allow get, list: if isAdmin()
+        || (resource.data.isActive == true
+          && resource.data.verificationStatus == 'approved')
+        || (isWorker() && resource.data.providerId == request.auth.uid);
+      allow create: if isWorker() && validListingDetails(request.resource.data)
+        && request.resource.data.keys().hasAll([
+          'providerId', 'providerName', 'serviceCategories', 'description',
+          'skills', 'equipment', 'experienceYears', 'district', 'taluka',
+          'availability', 'chargeUnit', 'createdBy', 'verificationStatus',
+          'isActive', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'providerId', 'providerName', 'serviceCategories', 'description',
+          'skills', 'equipment', 'experienceYears', 'district', 'taluka',
+          'village', 'availability', 'chargeAmount', 'chargeUnit',
+          'verificationStatus', 'isActive', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.providerId == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.providerName is string
+        && request.resource.data.serviceCategories is list
+        && request.resource.data.description is string
+        && request.resource.data.skills is list
+        && request.resource.data.equipment is list
+        && request.resource.data.experienceYears is number
+        && request.resource.data.experienceYears >= 0
+        && request.resource.data.district in ['North Goa', 'South Goa']
+        && request.resource.data.verificationStatus == 'pending'
+        && request.resource.data.isActive == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && changedOnly(['verificationStatus', 'isActive', 'updatedAt'])
+        && request.resource.data.verificationStatus
+          in ['pending', 'approved', 'rejected', 'outdated']
+        && request.resource.data.updatedAt == request.time
+        || (isWorker() && validListingDetails(request.resource.data)
+          && resource.data.providerId == request.auth.uid
+          && changedOnly([
+            'providerName', 'serviceCategories', 'description', 'skills',
+            'equipment', 'experienceYears', 'district', 'taluka', 'village',
+            'availability', 'chargeAmount', 'chargeUnit', 'verificationStatus',
+            'updatedAt'
+          ])
+          && request.resource.data.providerId == resource.data.providerId
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.verificationStatus == 'pending'
+          && request.resource.data.isActive == resource.data.isActive
+          && request.resource.data.updatedAt == request.time);
+      allow delete: if false;
+    }
+
+    function publicStorageFacility(data) {
+      return data.isActive == true
+        && data.facilityKind in ['storage_candidate', 'market_warehouse']
+        && data.verificationStatus == 'approved';
+    }
+
+    match /storageFacilities/{facilityId} {
+      allow get: if facilityId == '_directory-config'
+        || isAdmin()
+        || publicStorageFacility(resource.data);
+      allow list: if isAdmin() || publicStorageFacility(resource.data);
+      allow create: if isAdmin()
+        && (facilityId == '_directory-config'
+          ? request.resource.data.keys().hasOnly(['seeded', 'createdBy', 'updatedAt'])
+            && request.resource.data.seeded == true
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.updatedAt == request.time
+          : request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time);
+      allow update: if isAdmin()
+        && (facilityId == '_directory-config'
+          ? changedOnly(['seeded', 'createdBy', 'updatedAt'])
+            && request.resource.data.seeded == true
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.updatedAt == request.time
+          : request.resource.data.createdBy == resource.data.createdBy
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.updatedAt == request.time);
+      allow delete: if false;
+    }
+
     match /cropDiseaseAnalyses/{assessmentId} {
       allow get, list: if isFarmer()
         && resource.data.farmerUid == request.auth.uid;
-      allow create, update, delete: if false;
+      allow create: if isFarmer()
+        && request.resource.data.keys().hasAll([
+          'assessmentId', 'farmerUid', 'selectedCrop', 'predictedDisease',
+          'modelId', 'modelVersion', 'modelScore', 'alternativeScores',
+          'assessedAt', 'status'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'assessmentId', 'farmerUid', 'selectedCrop', 'predictedDisease',
+          'modelId', 'modelVersion', 'modelScore', 'alternativeScores',
+          'assessedAt', 'status'
+        ])
+        && request.resource.data.assessmentId == assessmentId
+        && request.resource.data.farmerUid == request.auth.uid
+        && request.resource.data.selectedCrop in [
+          'rice', 'cotton', 'maize', 'sugarcane'
+        ]
+        && request.resource.data.predictedDisease is string
+        && (
+          (request.resource.data.selectedCrop == 'rice'
+            && request.resource.data.modelId == 'rice-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['Bacterialblight', 'Blast', 'Brownspot', 'Tungro'])
+          || (request.resource.data.selectedCrop == 'cotton'
+            && request.resource.data.modelId == 'cotton-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['bacterial_blight', 'curl_virus', 'fussarium_wilt', 'healthy'])
+          || (request.resource.data.selectedCrop == 'maize'
+            && request.resource.data.modelId == 'maize-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['Blight', 'Common_Rust', 'Gray_Leaf_Spot', 'Healthy'])
+          || (request.resource.data.selectedCrop == 'sugarcane'
+            && request.resource.data.modelId == 'sugarcane-mobilenetv2-v1'
+            && request.resource.data.predictedDisease
+              in ['Bacterial Blight', 'Healthy', 'Red Rot'])
+        )
+        && request.resource.data.modelVersion is string
+        && request.resource.data.modelVersion.size() == 64
+        && request.resource.data.modelScore is number
+        && request.resource.data.modelScore >= 0
+        && request.resource.data.modelScore <= 1
+        && request.resource.data.alternativeScores is list
+        && request.resource.data.alternativeScores.size() == 0
+        && request.resource.data.assessedAt == request.time
+        && request.resource.data.status in ['uncertain', 'unverified'];
+      allow update, delete: if false;
     }
 
     // Unused collections, including transactions, remain denied by default.

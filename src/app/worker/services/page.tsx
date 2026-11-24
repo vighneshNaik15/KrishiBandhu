@@ -56,12 +56,18 @@ function statusLabel(status: ServiceListing['verificationStatus']): string {
 
 export default function WorkerServicesPage() {
   const { userProfile } = useAuth();
+  return userProfile ? <WorkerListings key={userProfile.uid} /> : null;
+}
+
+function WorkerListings() {
+  const { userProfile } = useAuth();
   const providerId = userProfile?.uid;
   const [listings, setListings] = useState<ServiceListing[]>([]);
   const [loadingListings, setLoadingListings] = useState(true);
   const [listingsVersion, setListingsVersion] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string>();
   const [success, setSuccess] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting, submitCount } } = useForm<FormValues, unknown, ValidFormValues>({
@@ -105,8 +111,7 @@ export default function WorkerServicesPage() {
     setSubmitError(null);
     setSuccess(null);
     try {
-      await serviceListingService.create({
-        providerId: userProfile.uid,
+      const fields = {
         providerName: userProfile.name,
         serviceCategories: categories,
         description: data.description,
@@ -119,7 +124,13 @@ export default function WorkerServicesPage() {
         availability: data.availability,
         ...(data.chargeAmount !== undefined ? { chargeAmount: data.chargeAmount } : {}),
         chargeUnit: data.chargeUnit,
-      });
+      };
+      if (editing) {
+        await serviceListingService.updateOwn(editing, fields);
+      } else {
+        await serviceListingService.create({ ...fields, providerId: userProfile.uid });
+      }
+      setEditing(undefined);
       reset({
         district: data.district,
         experienceYears: 0,
@@ -182,7 +193,8 @@ export default function WorkerServicesPage() {
           )}
           {submitError && <Alert variant="error">{submitError}</Alert>}
           {success && <Alert variant="success">{success}</Alert>}
-          <Button type="submit" isLoading={isSubmitting}>Submit service listing</Button>
+          <Button type="submit" isLoading={isSubmitting}>{editing ? 'Save listing changes' : 'Submit service listing'}</Button>
+          {editing && <Button type="button" variant="secondary" onClick={() => { setEditing(undefined); reset(); }}>Cancel edit</Button>}
         </form>
       </Card>
 
@@ -206,6 +218,14 @@ export default function WorkerServicesPage() {
                 <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">{statusLabel(listing.verificationStatus)}</span>
               </div>
               <p className="mt-3 text-sm text-neutral-600">{listing.description}</p>
+              <Button variant="secondary" onClick={() => {
+                setEditing(listing.listingId);
+                setSuccess(null);
+                setSubmitError(null);
+                reset({ ...listing, skills: listing.skills.join(', '), equipment: listing.equipment.join(', '),
+                  village: listing.village ?? '', chargeAmount: listing.chargeAmount ?? '' });
+                window.scrollTo({ top: 0 });
+              }}>Edit listing</Button>
             </Card>
           ))
         )}

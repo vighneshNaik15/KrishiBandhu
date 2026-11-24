@@ -61,7 +61,7 @@ export interface Order {
   totalAmount: number;
 
   // Delivery
-  deliveryAddress: DeliveryAddress;
+  deliveryAddress?: DeliveryAddress;
 
   // Order lifecycle
   status: OrderStatus;
@@ -88,6 +88,6 @@ export interface CreateOrderData {
   quantity: number;
   unitPrice: number;
   totalAmount: number;
-  deliveryAddress: DeliveryAddress;
+  deliveryAddress?: DeliveryAddress;
   buyerNote?: string;
 }

@@ -220,7 +220,7 @@ export default function HarvestStoragePage() {
           />
           {providerLoading ? (
             <LoadingRows label="Loading providers" />
-          ) : filteredProviders.length === 0 ? (
+          ) : providerError ? null : filteredProviders.length === 0 ? (
             <Card>
               <EmptyState
                 title="No approved providers in this area yet"
@@ -261,7 +261,7 @@ export default function HarvestStoragePage() {
             <h2 className="text-xl font-semibold text-neutral-900">Cold storage and agricultural storage leads</h2>
             <p className="mt-1 text-sm text-neutral-600">
               Browse the supplied district-based storage dataset and separate Goa leads. The source dataset has no state field;
-              all facilities remain unverified, and listed capacity is not available space.
+              bundled records are unverified. Live listings show their review status. Listed capacity alone does not establish available space.
             </p>
           </div>
           {facilityError && <Alert variant="error">{facilityError}</Alert>}

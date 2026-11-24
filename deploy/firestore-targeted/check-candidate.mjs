@@ -6,7 +6,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { collection, connectFirestoreEmulator, deleteDoc, doc, GeoPoint, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 
 const projectId = 'demo-krishibandhu';
-const port = 8086;
+const port = Number(process.env.KB_RULES_PORT ?? 8086);
 Object.assign(process.env, { NEXT_PUBLIC_FIREBASE_PROJECT_ID: projectId, NEXT_PUBLIC_FIREBASE_API_KEY: 'emulator-only' });
 const hooks = registerHooks({ resolve(specifier, context, next) {
   if (specifier === './legacyPhotoService') return next('./legacyPhotoService.ts', context);
@@ -15,6 +15,7 @@ const hooks = registerHooks({ resolve(specifier, context, next) {
 const { default: farmerApp, db } = await import('../../src/lib/firebase/config.ts');
 const { commitFarmMutation, farmService } = await import('../../src/services/farmService.ts');
 const { FarmCache, enqueueFarm, readWorkspace, synchronizeFarms } = await import('../../src/features/farms/farmCache.ts');
+const { orderService } = await import('../../src/services/orderService.ts');
 const { cropDiseaseService } = await import('../../src/services/cropDiseaseService.ts');
 hooks.deregister();
 const uid = randomUUID();
@@ -55,6 +56,14 @@ try {
   const unmappedId = await enqueueFarm(cache, uid, { kind: 'create', details });
   const mappedId = await enqueueFarm(cache, uid, { kind: 'create', details: { ...details, boundary } });
   const allowed = () => true;
+  // Simulate a rules denial and the same manual retry used by FarmWorkspace.
+  await synchronizeFarms(cache, uid, allowed, async () => {
+    throw Object.assign(new Error('Denied'), { code: 'permission-denied' });
+  });
+  const blocked = (await readWorkspace(cache)).pending;
+  assert(blocked.every(op => op.failure === 'blocked'));
+  await cache.queue.toCollection().modify(op => { delete op.failure; delete op.error; op.retryAt = 0; });
+  assert.deepEqual((await readWorkspace(cache)).pending.map(op => op.id), blocked.map(op => op.id));
   const operation = (await readWorkspace(cache)).pending.find(entry => entry.farmId === unmappedId);
   await commitFarmMutation(operation, allowed);
   await synchronizeFarms(cache, uid, allowed, commitFarmMutation);
@@ -101,11 +110,16 @@ try {
     await denied(getDoc(doc(connection, 'cropDiseaseAnalyses', first)));
     await denied(getDocs(query(collection(connection, 'cropDiseaseAnalyses'), where('farmerUid', '==', role === 'other' ? uid : roleUid[role]))));
   }
+  const savedId = randomUUID();
+  await cropDiseaseService.save(savedId, uid, { crop: 'rice', model_id: 'rice-mobilenetv2-v1', model_version: 'a'.repeat(64),
+    predicted_class: 'Blast', scores: [{ class_name: 'Blast', score: 0.8 }], uncertain: true });
+  assert((await cropDiseaseService.getByFarmer(uid)).some(row => row.assessmentId === savedId && !row.imageStoragePath));
+  await denied(getDoc(doc(accounts.other, 'cropDiseaseAnalyses', savedId)));
   const report = doc(db, 'cropDiseaseAnalyses', first);
   await denied(setDoc(doc(db, 'cropDiseaseAnalyses', randomUUID()), { farmerUid: uid, assessedAt: Timestamp.now() }));
   await denied(updateDoc(report, { assessedAt: Timestamp.now() }));
   await denied(deleteDoc(report));
-  console.log('PASS Disease History: owner query and ordering, denied cross-account, unscoped, anonymous, inactive and wrong-role access, denied all writes.');
+  console.log('PASS Disease History: owner query and ordering, denied cross-account, unscoped, anonymous, inactive and wrong-role access, validated metadata-only creation and immutable reports.');
 
   const productId = randomUUID();
   await seed('products', productId, strings({ ...owner, status: 'active' }));
@@ -124,7 +138,59 @@ try {
   assert((await getDoc(doc(accounts.buyer, 'orders', orderId))).exists());
   await denied(getDoc(doc(accounts.other, 'orders', orderId)));
   await denied(setDoc(doc(accounts.buyer, 'orders', randomUUID()), { buyerId: roleUid.buyer, farmerId: uid }));
-  console.log('PASS existing permissions: public Marketplace and published jobs, application owner acceptance, participant-only order reads and denied order creation.');
+  const stockId = randomUUID();
+  const sellerProduct = { ...owner, farmerName: 'Test farmer', farmerDistrict: 'North Goa',
+    farmerState: 'Goa', district: 'North Goa', state: 'Goa', name: 'Coconut', category: 'fruits',
+    description: 'Test listing', price: 20, unit: 'piece', minimumOrderQuantity: 1,
+    quantityAvailable: 2, images: [], status: 'active', ...timestamps() };
+  await setDoc(doc(db, 'products', stockId), sellerProduct);
+  const imageList = ['https://example.test/older-client/coconut.jpg'];
+  const legacyProduct = doc(db, 'products', randomUUID());
+  await setDoc(legacyProduct, { ...sellerProduct, images: imageList });
+  assert.deepEqual((await getDoc(doc(accounts.buyer, 'products', legacyProduct.id))).data().images, imageList);
+  for (const connection of Object.values(accounts)) {
+    await denied(updateDoc(doc(connection, 'products', legacyProduct.id), { images: [], updatedAt: serverTimestamp() }));
+    await denied(setDoc(doc(connection, 'products', randomUUID()), { ...sellerProduct, images: imageList }));
+  }
+  await denied(setDoc(doc(db, 'products', randomUUID()), { ...sellerProduct, images: 'invalid' }));
+  await denied(updateDoc(legacyProduct, { images: [], farmerId: roleUid.other, updatedAt: serverTimestamp() }));
+  await updateDoc(legacyProduct, { status: 'inactive', updatedAt: serverTimestamp() });
+  await denied(getDoc(doc(accounts.buyer, 'products', legacyProduct.id)));
+  console.log('PASS legacy Marketplace image references, buyer visibility, private listing protection, ownership and role denials.');
+  await seed('users', roleUid.buyer, { ...strings({ uid: roleUid.buyer, name: 'Buyer', role: 'buyer' }), isActive: { booleanValue: true } });
+  const request = { ...owner, productId: stockId, buyerId: roleUid.buyer, buyerName: 'Buyer',
+    farmerName: 'Test farmer', productName: 'Coconut', productUnit: 'piece', quantity: 2,
+    unitPrice: 20, totalAmount: 40, requestVersion: 1, status: 'pending', statusHistory: [], ...timestamps() };
+  const firstRequest = randomUUID(), secondRequest = randomUUID();
+  for (const id of [firstRequest, secondRequest]) await setDoc(doc(accounts.buyer, 'orders', id), request);
+  await denied(setDoc(doc(accounts.buyer, 'orders', firstRequest), request));
+  for (const overrides of [{ quantity: 3, totalAmount: 60 }, { quantity: 0 }, { unitPrice: 1 }, { buyerId: uid }, { farmerId: roleUid.other }]) {
+    await denied(setDoc(doc(accounts.buyer, 'orders', randomUUID()), { ...request, ...overrides }));
+  }
+  await denied(setDoc(doc(accounts.worker, 'orders', randomUUID()), request));
+  const outcomes = await Promise.allSettled([firstRequest, secondRequest].map(id => orderService.updateStatus(id, 'accepted', uid)));
+  assert.equal(outcomes.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal((await getDoc(doc(db, 'products', stockId))).data().quantityAvailable, 0);
+  const rejected = outcomes[0].status === 'rejected' ? firstRequest : secondRequest;
+  await orderService.updateStatus(rejected, 'rejected', uid);
+  assert.equal((await getDoc(doc(accounts.buyer, 'orders', rejected))).data().status, 'rejected');
+  console.log('PASS simultaneous order acceptance, stock floor, rejection, invalid quantity, price and ownership.');
+
+  const privateListing = randomUUID();
+  await seed('serviceListings', privateListing, { ...strings({providerId: roleUid.worker, verificationStatus: 'pending'}), isActive: {booleanValue:true} });
+  assert((await getDoc(doc(accounts.worker, 'serviceListings', privateListing))).exists());
+  for (const connection of [db, accounts.buyer, accounts.signedOut]) {
+    await denied(getDoc(doc(connection, 'serviceListings', privateListing)));
+    await denied(updateDoc(doc(connection, 'serviceListings', privateListing), {verificationStatus:'approved'}));
+  }
+  await denied(updateDoc(doc(accounts.worker, 'serviceListings', privateListing), {verificationStatus:'approved', updatedAt:serverTimestamp()}));
+  const facility = randomUUID();
+  await seed('storageFacilities', facility, { ...strings({facilityKind:'storage_candidate', verificationStatus:'pending'}), isActive:{booleanValue:true} });
+  await denied(getDoc(doc(db, 'storageFacilities', facility)));
+  await denied(updateDoc(doc(accounts.worker, 'storageFacilities', facility), {verificationStatus:'approved'}));
+  await denied(updateDoc(doc(accounts.worker, 'users', roleUid.worker), {role:'admin',updatedAt:serverTimestamp()}));
+  console.log('PASS private directories and review permissions.');
+  console.log('PASS existing permissions: public Marketplace and published jobs, application owner acceptance, participant-only order reads and denied malformed orders.');
 } finally {
   await Promise.all([cache.delete(), ...apps.map(deleteApp)]);
 }

@@ -28,6 +28,9 @@ import {
 import { formatDateTime } from '@/utils/formatters';
 import { ROUTES } from '@/lib/constants';
 
+import { cropDiseaseService } from '@/services/cropDiseaseService';
+import { getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
+
 const CROPS: { id: SupportedCrop; label: string }[] = [
   { id: 'rice', label: 'Rice' },
   { id: 'cotton', label: 'Cotton' },
@@ -49,6 +52,7 @@ function getUncertaintyMessage(reasons: string[]): string {
 
 export function CropDoctorPage() {
   const { firebaseUser } = useAuth();
+  const [report, setReport] = useState<{ id: string; uid: string; status: 'ready' | 'saving' | 'saved'; error?: string }>();
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const [crop, setCrop] = useState<SupportedCrop>('rice');
@@ -73,7 +77,7 @@ export function CropDoctorPage() {
       })
       .catch((error: unknown) => {
         if (active) {
-          setServiceError(error instanceof Error ? error.message : 'Model status could not be loaded.');
+          setServiceError(error instanceof TypeError ? 'Cannot reach the inference service. Check that FastAPI is running and allows this site origin, then reload.' : error instanceof Error ? error.message : 'Model status could not be loaded.');
         }
       });
     return () => {
@@ -133,6 +137,7 @@ export function CropDoctorPage() {
     try {
       const idToken = await firebaseUser.getIdToken();
       const result = await analyzeCropImage(crop, image, idToken);
+      setReport({ id: crypto.randomUUID(), uid: firebaseUser.uid, status: 'ready' });
       setPrediction(result);
       setAssessmentTime(new Date());
     } catch (error) {
@@ -376,7 +381,17 @@ export function CropDoctorPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button disabled aria-describedby="report-saving-note">Save report</Button>
+                  <Button disabled={!report || report.uid !== firebaseUser?.uid || report.status !== 'ready'}
+                    onClick={async () => {
+                      if (!report || firebaseUser?.uid !== report.uid) return;
+                      setReport({ ...report, status: 'saving' });
+                      try {
+                        await cropDiseaseService.save(report.id, report.uid, prediction);
+                        setReport(current => current?.id === report.id ? { ...report, status: 'saved' } : current);
+                      } catch (error) {
+                        setReport(current => current?.id === report.id ? { ...report, status: 'ready', error: getFirebaseOperationErrorMessage(error, 'Saving assessment') } : current);
+                      }
+                    }}>{report?.status === 'saved' ? 'Report saved' : report?.status === 'saving' ? 'Saving…' : 'Save report'}</Button>
                   <Link
                     href={ROUTES.FARMER_WEATHER}
                     className="inline-flex h-11 items-center gap-2 rounded-lg border border-neutral-300 bg-white px-5 text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50"
@@ -386,7 +401,7 @@ export function CropDoctorPage() {
                   </Link>
                 </div>
                 <p id="report-saving-note" className="text-xs text-neutral-600">
-                  Report saving is unavailable while persistent photo storage is disabled. This assessment is visible until you leave or reload this page.
+                  {report?.error ?? 'Save the prediction details privately to Disease History. The photo is excluded from the saved report.'}
                 </p>
                 <p className="flex items-start gap-2 text-xs text-neutral-500">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />

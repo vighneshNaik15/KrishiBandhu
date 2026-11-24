@@ -1,6 +1,6 @@
 import {
   collection,
-  getDocs,
+  getDocs, doc, setDoc, serverTimestamp,
   limit,
   orderBy,
   query,
@@ -10,10 +10,20 @@ import { db } from '@/lib/firebase/config';
 import { readLegacyPhoto } from './legacyPhotoService';
 import { COLLECTIONS } from '@/lib/constants';
 import type {
-  CropDiseaseAssessment,
+  CropDiseaseAssessment, CropDiseasePrediction,
 } from '@/models/cropDiseaseAssessment';
 
 export const cropDiseaseService = {
+  async save(id: string, farmerUid: string, prediction: CropDiseasePrediction) {
+    await setDoc(doc(db, COLLECTIONS.CROP_DISEASE_ANALYSES, id), {
+      assessmentId: id, farmerUid, selectedCrop: prediction.crop,
+      predictedDisease: prediction.predicted_class, modelId: prediction.model_id,
+      modelVersion: prediction.model_version, modelScore: prediction.scores[0].score,
+      alternativeScores: [], assessedAt: serverTimestamp(),
+      status: prediction.uncertain ? 'uncertain' : 'unverified',
+    });
+  },
+
   async getByFarmer(farmerUid: string): Promise<CropDiseaseAssessment[]> {
     const assessmentsQuery = query(
       collection(db, COLLECTIONS.CROP_DISEASE_ANALYSES),

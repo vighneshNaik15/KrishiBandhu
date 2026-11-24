@@ -83,4 +83,14 @@ Set-Location services\crop-inference
 python -m unittest discover -s tests -v
 ```
 
-The repository's current machine has Python 3.13, no Python 3.11 runtime, no Docker executable, and no TensorFlow/TensorFlow Hub installation. Actual model loading, serving, Firebase-backed report persistence, and full endpoint smoke tests must be run in the pinned runtime and a configured Firebase project before production use.
+For this project on Windows, start the installed service from the repository root in a separate PowerShell terminal.
+
+```powershell
+$env:CROP_MODEL_DIR = (Resolve-Path services/crop-inference/models).Path
+$env:FIREBASE_PROJECT_ID = 'krishibandhu-a500e'
+$env:CORS_ALLOWED_ORIGINS = 'http://localhost:3000,http://127.0.0.1:3000'
+$env:TFHUB_CACHE_DIR = "$env:LOCALAPPDATA\krishibandhu\tfhub"
+.\services\crop-inference\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir services/crop-inference --host 127.0.0.1 --port 8000
+```
+
+In another terminal, run `Invoke-RestMethod http://localhost:8000/health` and `Invoke-RestMethod http://localhost:8000/models`. The health endpoint reports how many models loaded. Authenticated predictions also require working Firebase token verification and permission to read the caller's profile.

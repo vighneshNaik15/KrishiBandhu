@@ -295,7 +295,7 @@ service cloud.firestore {
         && changedOnly([
           'farmerName', 'farmerDistrict', 'farmerState', 'name', 'category',
           'description', 'price', 'unit', 'minimumOrderQuantity',
-          'quantityAvailable', 'district', 'state', 'tags',
+          'lastAcceptedOrderId', 'quantityAvailable', 'district', 'state', 'tags',
           'status', 'updatedAt'
         ])
         && request.resource.data.farmerId == resource.data.farmerId
@@ -649,12 +649,26 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function validListingDetails(data) {
+      return data.providerName == get(userPath(request.auth.uid)).data.name
+        && data.taluka is string && data.taluka.size() >= 2 && data.taluka.size() <= 80
+        && data.get('village', '') is string && data.get('village', '').size() <= 80
+        && data.availability is string && data.availability.size() >= 3 && data.availability.size() <= 300
+        && data.description is string && data.description.size() >= 20 && data.description.size() <= 1000
+        && data.experienceYears is int && data.experienceYears >= 0 && data.experienceYears <= 80
+        && data.district in ['North Goa','South Goa']
+        && data.skills is list && data.skills.size() > 0 && data.equipment is list
+        && data.serviceCategories is list && data.serviceCategories.size() > 0
+        && data.chargeUnit in ['per_hour','per_day','per_job','negotiable']
+        && (!('chargeAmount' in data) || (data.chargeAmount is number && data.chargeAmount >= 1 && data.chargeAmount <= 10000000));
+    }
+
     match /serviceListings/{listingId} {
       allow get, list: if isAdmin()
         || (resource.data.isActive == true
           && resource.data.verificationStatus == 'approved')
         || (isWorker() && resource.data.providerId == request.auth.uid);
-      allow create: if isWorker()
+      allow create: if isWorker() && validListingDetails(request.resource.data)
         && request.resource.data.keys().hasAll([
           'providerId', 'providerName', 'serviceCategories', 'description',
           'skills', 'equipment', 'experienceYears', 'district', 'taluka',
@@ -687,7 +701,7 @@ service cloud.firestore {
         && request.resource.data.verificationStatus
           in ['pending', 'approved', 'rejected', 'outdated']
         && request.resource.data.updatedAt == request.time
-        || (isWorker()
+        || (isWorker() && validListingDetails(request.resource.data)
           && resource.data.providerId == request.auth.uid
           && changedOnly([
             'providerName', 'serviceCategories', 'description', 'skills',
@@ -706,7 +720,7 @@ service cloud.firestore {
     function publicStorageFacility(data) {
       return data.isActive == true
         && data.facilityKind in ['storage_candidate', 'market_warehouse']
-        && data.verificationStatus in ['pending', 'approved'];
+        && data.verificationStatus == 'approved';
     }
 
     match /storageFacilities/{facilityId} {
@@ -762,17 +776,43 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function validBuyerRequest(data) {
+      let product = get(/databases/$(database)/documents/products/$(data.productId)).data;
+      return data.keys().hasOnly(['requestVersion','productId','productName','productUnit','farmerId',
+          'farmerUserId','farmerName','buyerId','buyerName','quantity','unitPrice','totalAmount',
+          'status','statusHistory','createdAt','updatedAt'])
+        && data.requestVersion == 1 && data.productId is string
+        && data.buyerId == request.auth.uid && data.buyerName == get(userPath(request.auth.uid)).data.name
+        && product.status == 'active' && data.farmerId == product.farmerId
+        && data.farmerUserId == product.farmerUserId && data.farmerName == product.farmerName
+        && data.productName == product.name && data.productUnit == product.unit
+        && data.quantity is number && data.quantity > 0 && data.quantity >= product.minimumOrderQuantity
+        && data.quantity <= product.quantityAvailable && data.unitPrice == product.price
+        && data.totalAmount == data.quantity * data.unitPrice && data.status == 'pending'
+        && data.statusHistory == [] && data.createdAt == request.time && data.updatedAt == request.time;
+    }
+
+    function stockCommitted(orderId, order) {
+      let path = /databases/$(database)/documents/products/$(order.productId);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      return before.status == 'active' && before.farmerId == request.auth.uid
+        && before.quantityAvailable >= order.quantity && after.lastAcceptedOrderId == orderId
+        && after.quantityAvailable == before.quantityAvailable - order.quantity;
+    }
+
     match /orders/{orderId} {
       allow get, list: if (isBuyer()
           && resource.data.buyerId == request.auth.uid)
         || (isFarmer()
           && resource.data.farmerId == request.auth.uid);
 
-      // Order creation needs a trusted stock-reservation transaction first.
-      allow create: if false;
+      allow create: if isBuyer() && validBuyerRequest(request.resource.data);
       allow update: if isFarmer()
         && resource.data.farmerId == request.auth.uid
         && changedOnly(['status', 'statusHistory', 'updatedAt'])
+        && (resource.data.get('requestVersion', 0) != 1 || request.resource.data.status != 'accepted'
+          || stockCommitted(orderId, resource.data))
         && validOrderTransition(
           resource.data.status,
           request.resource.data.status
@@ -789,7 +829,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll([
           'assessmentId', 'farmerUid', 'selectedCrop', 'predictedDisease',
           'modelId', 'modelVersion', 'modelScore', 'alternativeScores',
-          'imageStoragePath', 'assessedAt', 'status'
+          'assessedAt', 'status'
         ])
         && request.resource.data.keys().hasOnly([
           'assessmentId', 'farmerUid', 'selectedCrop', 'predictedDisease',
@@ -827,8 +867,7 @@ service cloud.firestore {
         && request.resource.data.modelScore <= 1
         && request.resource.data.alternativeScores is list
         && request.resource.data.alternativeScores.size() <= 3
-        && request.resource.data.imageStoragePath is string
-        && (
+        && ((!('imageStoragePath' in request.resource.data) && request.resource.data.alternativeScores.size() == 0) || (request.resource.data.imageStoragePath is string && (
           request.resource.data.imageStoragePath
             == 'cropDiseaseReports/' + request.auth.uid + '/'
               + assessmentId + '/image.jpg'
@@ -838,7 +877,7 @@ service cloud.firestore {
           || request.resource.data.imageStoragePath
             == 'cropDiseaseReports/' + request.auth.uid + '/'
               + assessmentId + '/image.webp'
-        )
+        )))
         && request.resource.data.assessedAt == request.time
         && request.resource.data.status in ['uncertain', 'unverified'];
       allow update, delete: if false;
