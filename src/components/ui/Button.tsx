@@ -1,6 +1,8 @@
 import React from 'react';
+import Link from 'next/link';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type LinkVariant = ButtonVariant | 'lime' | 'outline-light';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -12,22 +14,37 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
 }
 
-const variantStyles: Record<ButtonVariant, string> = {
+const variantStyles: Record<LinkVariant, string> = {
   primary:
-    'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 disabled:bg-neutral-300 disabled:text-neutral-500 shadow-sm',
+    'border border-transparent bg-forest-soft text-white hover:bg-forest active:bg-forest disabled:bg-neutral-200 disabled:text-neutral-500 shadow-xs',
   secondary:
-    'bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400 active:bg-neutral-100 disabled:opacity-50',
+    'bg-white text-forest border border-neutral-300 hover:bg-primary-50 hover:border-primary-400 active:bg-primary-100 disabled:opacity-50',
   ghost:
-    'bg-transparent text-primary-600 hover:bg-primary-50 active:bg-primary-100 disabled:opacity-50',
+    'border border-transparent bg-transparent text-primary-700 hover:bg-primary-50 active:bg-primary-100 disabled:opacity-50',
   danger:
-    'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:opacity-50 shadow-sm',
+    'border border-transparent bg-red-700 text-white hover:bg-red-800 active:bg-red-900 disabled:opacity-50 shadow-xs',
+  lime:
+    'border border-transparent bg-lime text-forest hover:bg-[#e7f2c8] active:bg-primary-300',
+  'outline-light':
+    'border border-white/60 bg-forest/30 text-white hover:bg-white/15 active:bg-white/25',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'text-sm px-3 py-2 h-9 gap-1.5',
-  md: 'text-sm px-5 py-2.5 h-11 gap-2',
-  lg: 'text-base px-6 py-3 h-12 gap-2',
+  sm: 'text-sm px-3.5 py-2 min-h-10 gap-1.5',
+  md: 'text-sm px-5 py-2.5 min-h-11 gap-2',
+  lg: 'text-base px-5 sm:px-6 py-3 min-h-12 gap-2',
 };
+
+function buttonClasses(variant: LinkVariant, size: ButtonSize, fullWidth: boolean, className: string) {
+  return [
+    'inline-flex max-w-full items-center justify-center rounded-lg text-center font-semibold',
+    'transition-colors duration-150 disabled:cursor-not-allowed',
+    variantStyles[variant],
+    sizeStyles[size],
+    fullWidth ? 'w-full' : '',
+    className,
+  ].filter(Boolean).join(' ');
+}
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
@@ -49,23 +66,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled || isLoading}
-        className={[
-          'inline-flex items-center justify-center font-semibold rounded-lg',
-          'transition-all duration-150 ease-in-out',
-          'focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
-          'cursor-pointer disabled:cursor-not-allowed',
-          variantStyles[variant],
-          sizeStyles[size],
-          fullWidth ? 'w-full' : '',
-          className,
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        aria-busy={isLoading || undefined}
+        className={buttonClasses(variant, size, fullWidth, className)}
         {...props}
       >
         {isLoading ? (
           <>
             <svg
+              aria-hidden="true"
               className="animate-spin h-4 w-4 shrink-0"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -100,3 +108,21 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = 'Button';
+
+interface ButtonLinkProps extends React.ComponentProps<typeof Link> {
+  variant?: LinkVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  leftIcon?: React.ReactNode;
+}
+
+export function ButtonLink({
+  variant = 'primary', size = 'md', fullWidth = false, className = '', leftIcon, children, ...props
+}: ButtonLinkProps) {
+  return (
+    <Link {...props} className={buttonClasses(variant, size, fullWidth, className)}>
+      {leftIcon && <span className="shrink-0" aria-hidden>{leftIcon}</span>}
+      {children}
+    </Link>
+  );
+}

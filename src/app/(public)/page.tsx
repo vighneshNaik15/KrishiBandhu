@@ -1,171 +1,138 @@
-import React from "react";
-import Link from "next/link";
-import { ArrowRight, Leaf, Users, ShoppingBag, CloudSun, Sprout, Shield, Stethoscope, Tractor } from "lucide-react";
-import { ROUTES } from "@/lib/constants";
-import { Button } from "@/components/ui/Button";
+import Image from 'next/image';
+import Link from 'next/link';
+import {
+  BriefcaseBusiness, CloudSun, MapPin, ScanLine, ShieldCheck, ShoppingBasket,
+  Sprout, UserRoundPlus, Warehouse, WifiOff, Wheat,
+} from 'lucide-react';
+import { ButtonLink } from '@/components/ui/Button';
+import { ROUTES } from '@/lib/constants';
 
-const FEATURES = [
+const capabilities = [
   {
-    icon: Sprout,
-    title: "Farm & Crop Management",
-    description: "Manage multiple farms and crops. Track growth stages, irrigation, and harvest schedules.",
-    color: "text-primary-600 bg-primary-50",
+    title: 'Farm and crop management', icon: Sprout, href: ROUTES.FARMER_FARMS,
+    description: 'Map your plots, save field records and keep track of what is growing across your farms.',
   },
   {
-    icon: Users,
-    title: "Labour Marketplace",
-    description: "Find skilled agricultural workers. Post jobs, review applications and schedule work.",
-    color: "text-blue-600 bg-blue-50",
+    title: 'Crop Doctor', icon: ScanLine, href: ROUTES.FARMER_CROP_DOCTOR,
+    description: 'Upload a crop photo for a model-generated assessment and keep your assessment history in one place.',
   },
   {
-    icon: ShoppingBag,
-    title: "Product Marketplace",
-    description: "List agricultural products, connect with buyers and manage orders and available stock.",
-    color: "text-accent-600 bg-accent-50",
+    title: 'Weather and advisory', icon: CloudSun, href: ROUTES.FARMER_WEATHER,
+    description: 'Check a farm-level forecast and use AI Advisory to explore questions about your crops.',
   },
   {
-    icon: Stethoscope,
-    title: "AI Crop Disease Detection",
-    description: "Get cautious, image-based crop-health information with clear uncertainty and expert-verification guidance.",
-    color: "text-red-600 bg-red-50",
+    title: 'Produce marketplace', icon: ShoppingBasket, href: ROUTES.MARKETPLACE,
+    description: 'Browse local produce or list your own with a price, available quantity and contact details.',
   },
   {
-    icon: CloudSun,
-    title: "Weather & Crop Advisory",
-    description: "Use local weather, seasonal information and crop context to support farm decisions.",
-    color: "text-purple-600 bg-purple-50",
+    title: 'Agricultural jobs', icon: BriefcaseBusiness, href: ROUTES.JOBS,
+    description: 'Post farm work, browse local opportunities and keep track of applications.',
   },
   {
-    icon: Tractor,
-    title: "Farm Services",
-    description: "Discover harvesting, equipment rental, irrigation and other agricultural services.",
-    color: "text-amber-700 bg-amber-50",
-  },
-  {
-    icon: Shield,
-    title: "Government Schemes",
-    description: "Discover agricultural subsidies, loans and government schemes relevant to Goa and Konkan.",
-    color: "text-orange-600 bg-orange-50",
+    title: 'Harvest and storage', icon: Warehouse, href: ROUTES.HARVEST_SERVICES,
+    description: 'Find harvesting services and explore storage records by district.',
   },
 ];
 
-const STEPS = [
-  { step: "01", title: "Register your account", desc: "Sign up as a farmer, worker or buyer in minutes." },
-  { step: "02", title: "Set up your profile", desc: "Add your farm details, crops or buying preferences." },
-  { step: "03", title: "Start connecting", desc: "Post jobs, list products or browse the marketplace." },
+const setup = [
+  {
+    title: 'Choose your role', icon: UserRoundPlus,
+    description: 'Create an account as a farmer, agricultural worker or buyer to open the tools for your role.',
+  },
+  {
+    title: 'Set up your workspace', icon: Sprout,
+    description: 'Add your first farm, set up your worker profile or browse produce in the marketplace.',
+  },
+  {
+    title: 'Plan the work ahead', icon: Wheat,
+    description: 'Use your dashboard to keep farm records, listings or applications easy to find.',
+  },
 ];
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col">
-      {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="relative bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC40Ij48cGF0aCBkPSJNMzYgMzRjMC0yIDItNCA0LTRzNCAyIDQgNC0yIDQtNCA0LTQtMi00LTR6bS0xNiAwYzAtMiAyLTQgNC00czQgMiA0IDQtMiA0LTQgNC00LTItNC00eiIvPjwvZz48L2c+PC9zdmc+')]" />
-        <div className="container-page relative section-padding text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
-            <Leaf className="w-4 h-4" aria-hidden />
-            Goa &amp; Konkan Agriculture Platform
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold font-heading mb-6 max-w-3xl mx-auto leading-tight">
-            Your trusted partner in agriculture
-          </h1>
-          <p className="text-lg md:text-xl text-primary-100 max-w-2xl mx-auto mb-10">
-            Manage farms and crops, discover workers and services, connect with buyers, and access
-            crop and weather information in one connected platform.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href={ROUTES.REGISTER}>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="border-0 shadow-lg hover:bg-primary-50"
-              >
-                Get Started Free
-                <ArrowRight className="w-5 h-5 ml-1" aria-hidden />
-              </Button>
-            </Link>
-            <Link href={ROUTES.MARKETPLACE}>
-              <Button size="lg" variant="ghost" className="text-white border border-white/30 hover:bg-white/10">
-                Browse Marketplace
-              </Button>
-            </Link>
-          </div>
-          <div className="flex justify-center gap-8 mt-12 text-sm text-primary-200">
-            <span>✓ Four connected roles</span>
-            <span>✓ Designed for mobile</span>
-            <span>✓ Delivered in verified phases</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Features ─────────────────────────────────────────────── */}
-      <section id="about" className="section-padding bg-neutral-50 scroll-mt-20">
-        <div className="container-page">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold font-heading text-neutral-900 mb-3">
-              One connected platform for agriculture
-            </h2>
-            <p className="text-neutral-500 max-w-xl mx-auto">
-              KrishiBandhu brings farm management, crop intelligence, labour, services and market access
-              together. Capabilities are being delivered in tested phases.
+    <div className="landing">
+      <section className="landing-hero theme-forest" aria-labelledby="landing-title">
+        <Image
+          src="/images/konkan-rice-fields.webp"
+          alt=""
+          fill
+          preload
+          sizes="100vw"
+          className="landing-hero-image"
+        />
+        <div className="container-page landing-hero-inner">
+          <div className="landing-hero-copy">
+            <p className="landing-kicker"><MapPin size={15} aria-hidden /> Goa &amp; the Konkan coast</p>
+            <h1 id="landing-title">A better way<br />to <em>grow together.</em></h1>
+            <p className="landing-lead">
+              Manage your farms, understand what’s happening in the field, and connect with local workers and buyers from one workspace.
             </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map((f) => {
-              const Icon = f.icon;
-              return (
-                <div key={f.title} className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${f.color}`}>
-                    <Icon className="w-6 h-6" aria-hidden />
-                  </div>
-                  <h3 className="font-semibold text-neutral-900 mb-2">{f.title}</h3>
-                  <p className="text-sm text-neutral-500 leading-relaxed">{f.description}</p>
-                </div>
-              );
-            })}
+            <div className="landing-actions">
+              <ButtonLink href={ROUTES.REGISTER} variant="lime" size="lg">Get started</ButtonLink>
+              <ButtonLink href={ROUTES.MARKETPLACE} variant="outline-light" size="lg">Explore marketplace</ButtonLink>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── How It Works ─────────────────────────────────────────── */}
-      <section className="section-padding bg-white">
-        <div className="container-page">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold font-heading text-neutral-900 mb-3">How It Works</h2>
-            <p className="text-neutral-500">Start with the workflows that support your role.</p>
+      <div className="landing-benefits">
+        <div className="container-page landing-benefits-grid">
+          <div><MapPin aria-hidden /><p><strong>Built for Goa and Konkan</strong><span>Local markets, crops and services</span></p></div>
+          <div><WifiOff aria-hidden /><p><strong>Farm records offline</strong><span>Changes sync when you reconnect</span></p></div>
+          <div><ShieldCheck aria-hidden /><p><strong>Role-based workspaces</strong><span>Tools for farmers, workers and buyers</span></p></div>
+        </div>
+      </div>
+
+      <section id="about" className="container-page landing-section scroll-mt-24" aria-labelledby="platform-title">
+        <div className="landing-section-heading">
+          <div>
+            <p className="landing-kicker">The platform</p>
+            <h2 id="platform-title">From field to market.</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {STEPS.map((s, i) => (
-              <div key={s.step} className="text-center relative">
-                {i < STEPS.length - 1 && (
-                  <div className="hidden md:block absolute top-6 left-1/2 w-full h-0.5 bg-primary-100" />
-                )}
-                <div className="relative z-10 inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-600 text-white font-bold text-lg mb-4">
-                  {s.step}
-                </div>
-                <h3 className="font-semibold text-neutral-900 mb-2">{s.title}</h3>
-                <p className="text-sm text-neutral-500">{s.desc}</p>
+          <p>Keep daily farm work, crop decisions and the people you rely on within reach.</p>
+        </div>
+        <div className="landing-feature-grid">
+          {capabilities.map(({ title, icon: Icon, href, description }, index) => (
+            <Link href={href} key={href} className={index === 0 ? 'landing-feature landing-feature-primary theme-forest' : 'landing-feature'}>
+              <span className="landing-feature-icon"><Icon size={23} strokeWidth={1.65} aria-hidden /></span>
+              <div>
+                <h3>{title}</h3>
+                <p>{description}</p>
               </div>
-            ))}
-          </div>
+            </Link>
+          ))}
         </div>
       </section>
 
-      {/* ── CTA ──────────────────────────────────────────────────── */}
-      <section className="section-padding bg-primary-700 text-white">
-        <div className="container-page text-center">
-          <h2 className="text-3xl font-bold font-heading mb-4">
-            Ready to transform your farm?
-          </h2>
-          <p className="text-primary-200 mb-8 max-w-lg mx-auto">
-            Join farmers, workers and buyers building a more connected agricultural community.
-          </p>
-          <Link href={ROUTES.REGISTER}>
-            <Button size="lg" className="bg-white text-primary-800 hover:bg-primary-50 border-0 shadow-lg">
-              Create Your Free Account
-              <ArrowRight className="w-5 h-5 ml-1" aria-hidden />
-            </Button>
-          </Link>
+      <section className="landing-setup" aria-labelledby="setup-title">
+        <div className="container-page landing-section">
+          <div className="landing-section-heading">
+            <div>
+              <p className="landing-kicker">How it works</p>
+              <h2 id="setup-title">Start with what you do.</h2>
+            </div>
+            <ButtonLink href={ROUTES.REGISTER} variant="secondary">Create an account</ButtonLink>
+          </div>
+          <ol className="landing-steps">
+            {setup.map(({ title, icon: Icon, description }) => (
+              <li key={title}>
+                <Icon size={26} strokeWidth={1.65} aria-hidden />
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="container-page landing-section">
+        <div className="landing-final theme-forest">
+          <div>
+            <h2>Find the people and tools<br className="hidden sm:block" /> for your next season.</h2>
+            <p>Join KrishiBandhu as a farmer, worker or buyer.</p>
+          </div>
+          <ButtonLink href={ROUTES.REGISTER} variant="lime" size="lg">Get started</ButtonLink>
         </div>
       </section>
     </div>

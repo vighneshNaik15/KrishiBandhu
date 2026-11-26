@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { MapPin, Layers, ArrowLeft, Edit, Sprout, Plus } from 'lucide-react';
+import { MapPin, Layers, Edit, Sprout, Plus } from 'lucide-react';
 import { FarmMap } from './ClientFarmMap';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { PageIntro } from '@/components/ui/PageIntro';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ROUTES } from '@/lib/constants';
 import { SOIL_TYPE_LABELS, IRRIGATION_TYPE_LABELS, AREA_UNIT_LABELS, type Farm } from '@/models/farm';
@@ -19,16 +20,10 @@ export function FarmDetail({ farm, onBack, onEdit }: { farm: Farm; onBack: () =>
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-neutral-700 flex items-center gap-1 mb-2">
-            <ArrowLeft className="w-4 h-4"/> Back
-          </button>
-          <h1 className="text-2xl font-bold font-heading text-neutral-900">{farm.name}</h1>
-          {farm.description && <p className="text-sm text-neutral-500 mt-1">{farm.description}</p>}
-        </div>
-        <Button onClick={onEdit} variant="secondary" size="sm" leftIcon={<Edit className="w-4 h-4"/>}>Edit</Button>
-      </div>
+      <PageIntro title={farm.name} description={farm.description} actions={<>
+        <Button onClick={onBack} variant="ghost">Back</Button>
+        <Button onClick={onEdit} variant="secondary" leftIcon={<Edit className="size-4" />}>Edit</Button>
+      </>} />
 
       {/* Details grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

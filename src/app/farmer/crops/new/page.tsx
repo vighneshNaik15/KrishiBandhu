@@ -14,6 +14,7 @@ import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
+import { PageIntro } from '@/components/ui/PageIntro';
 import { getFirebaseLoadErrorMessage, getFirebaseOperationErrorMessage } from '@/utils/firebaseErrors';
 import { ROUTES } from '@/lib/constants';
 import {
@@ -115,10 +116,7 @@ export default function NewCropPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-heading text-neutral-900">Add New Crop</h1>
-        <p className="text-sm text-neutral-500 mt-1">Track a crop on one of your farms.</p>
-      </div>
+      <PageIntro title="Add New Crop" description="Choose a farm and record the crop’s variety, planting details and growth stage." />
 
       <form noValidate onSubmit={handleSubmit(onSubmit, () => setError('Check the highlighted crop fields, then try again.'))} className="space-y-6">
         <Card>

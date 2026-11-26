@@ -1,12 +1,13 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Sprout, Calendar, Ruler, Trash2 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { cropService } from '@/services/cropService';
-import { Card, EmptyState } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Card, EmptyState, LoadingState } from '@/components/ui/Card';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { ROUTES } from '@/lib/constants';
@@ -41,20 +42,14 @@ export default function FarmerCropsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-heading text-neutral-900">My Crops</h1>
-          <p className="text-sm text-neutral-500 mt-1">Track all crops across your farms.</p>
-        </div>
-        <Link href={ROUTES.FARMER_CROPS_NEW}>
-          <Button leftIcon={<Plus className="w-4 h-4" />}>Add Crop</Button>
-        </Link>
-      </div>
+      <PageIntro title="My Crops"
+        description="Track crop stages and planting details across your farms."
+        actions={<ButtonLink href={ROUTES.FARMER_CROPS_NEW} leftIcon={<Plus className="size-4" />}>Add Crop</ButtonLink>} />
 
       {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
 
       {loading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 bg-neutral-100 rounded-xl animate-pulse"/>)}</div>
+        <LoadingState label="Loading crops…" />
       ) : error ? null : crops.length === 0 ? (
         <Card>
           <EmptyState

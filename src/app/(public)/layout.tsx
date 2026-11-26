@@ -5,7 +5,7 @@ export default function PublicLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <Navbar />
-      <main className="flex-1">{children}</main>
+      <main id="public-content" tabIndex={-1} className="min-w-0 flex-1">{children}</main>
       <Footer />
     </>
   );

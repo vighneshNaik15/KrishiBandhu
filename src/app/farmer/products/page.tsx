@@ -1,13 +1,14 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import { ProductPhoto } from '@/features/product-media/ProductPhoto';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Package, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { productService } from '@/services/productService';
-import { Card, EmptyState } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Card, EmptyState, LoadingState } from '@/components/ui/Card';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ProductStatusBadge } from '@/components/ui/Badge';
 import { ROUTES } from '@/lib/constants';
@@ -42,20 +43,14 @@ export default function FarmerProductsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-heading text-neutral-900">My Products</h1>
-          <p className="text-sm text-neutral-500 mt-1">Manage your agricultural product listings.</p>
-        </div>
-        <Link href={ROUTES.FARMER_PRODUCTS_NEW}>
-          <Button leftIcon={<Plus className="w-4 h-4"/>}>List Product</Button>
-        </Link>
-      </div>
+      <PageIntro title="My Products"
+        description="Manage listings, prices and stock for your agricultural products."
+        actions={<ButtonLink href={ROUTES.FARMER_PRODUCTS_NEW} leftIcon={<Plus className="size-4" />}>List Product</ButtonLink>} />
 
       {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1,2,3,4].map(i=><div key={i} className="h-32 bg-neutral-100 rounded-xl animate-pulse"/>)}</div>
+        <LoadingState label="Loading products…" />
       ) : error ? null : products.length === 0 ? (
         <Card>
           <EmptyState

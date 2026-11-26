@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Sprout, TreePalm, Briefcase, ShoppingBag, Package, BrainCircuit, ArrowRight, Plus, Store, Warehouse, Tractor, CloudSun } from 'lucide-react';
@@ -8,7 +9,7 @@ import { farmService } from '@/services/farmService';
 import { productService } from '@/services/productService';
 import { orderService } from '@/services/orderService';
 import { StatCard, EmptyState, Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 import { Badge } from '@/components/ui/Badge';
@@ -80,13 +81,9 @@ function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string })
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Welcome */}
-      <div>
-        <h1 className="text-2xl font-bold font-heading text-neutral-900">
-          Welcome, {name.split(' ')[0]} 👋
-        </h1>
-        <p className="text-sm text-neutral-500 mt-1">Here&apos;s what&apos;s happening on your farm today.</p>
-      </div>
+      <PageIntro title={`Welcome, ${name.split(' ')[0]}`} eyebrow="Farm overview" tone="photo"
+        description="Review your farms and market activity, or jump straight into today’s work."
+        actions={<ButtonLink variant="lime" href={ROUTES.FARMER_FARMS_NEW}>Add a farm</ButtonLink>} />
 
       {errors.length > 0 && (
         <Alert variant="warning" title="Some dashboard data is unavailable">
@@ -129,11 +126,50 @@ function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string })
         />
       </div>
 
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-neutral-800">My Farms</h2>
+          <Link href={ROUTES.FARMER_FARMS_NEW}>
+            <Button size="sm" variant="secondary" leftIcon={<Plus className="w-4 h-4" />}>Add Farm</Button>
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-neutral-100 rounded-lg animate-pulse" />)}
+          </div>
+        ) : dashboard?.farms.error ? (
+          <Alert variant="warning">{dashboard.farms.error}</Alert>
+        ) : farms.length === 0 ? (
+          <EmptyState
+            title="No farms added yet"
+            description="Add your farm to manage crops, post jobs and track activity."
+            action={
+              <Link href={ROUTES.FARMER_FARMS_NEW}>
+                <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>Add your first farm</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {farms.slice(0, 6).map((farm) => (
+              <Link key={farm.farmId} href={`${ROUTES.FARMER_FARMS}/${farm.farmId}`}>
+                <div className="border border-neutral-200 rounded-xl p-4 hover:border-primary-300 hover:bg-primary-50/30 transition-all cursor-pointer">
+                  <p className="font-semibold text-neutral-900 text-sm">{farm.name}</p>
+                  <p className="text-xs text-neutral-500 mt-1">{farm.village ? `${farm.village}, ` : ''}{farm.district}</p>
+                  <p className="text-xs text-neutral-400 mt-1">{farm.area} {farm.areaUnit}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick actions */}
         <Card className="lg:col-span-1">
           <h2 className="font-semibold text-neutral-800 mb-4">Quick Actions</h2>
-          <div className="flex flex-col gap-2">
+          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
             {[
               { label: 'Add a Farm', href: ROUTES.FARMER_FARMS_NEW, icon: TreePalm },
               { label: 'Add a Crop', href: ROUTES.FARMER_CROPS_NEW, icon: Sprout },
@@ -153,7 +189,7 @@ function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string })
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-50 transition-colors group"
+                  className="group flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-primary-50"
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
                     <Icon className="w-4 h-4" aria-hidden />
@@ -254,44 +290,6 @@ function FarmerDashboard({ farmerId, name }: { farmerId: string; name: string })
       </Card>
 
       {/* My Farms */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-neutral-800">My Farms</h2>
-          <Link href={ROUTES.FARMER_FARMS_NEW}>
-            <Button size="sm" variant="secondary" leftIcon={<Plus className="w-4 h-4" />}>Add Farm</Button>
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-neutral-100 rounded-lg animate-pulse" />)}
-          </div>
-        ) : dashboard?.farms.error ? (
-          <Alert variant="warning">{dashboard.farms.error}</Alert>
-        ) : farms.length === 0 ? (
-          <EmptyState
-            title="No farms added yet"
-            description="Add your farm to manage crops, post jobs and track activity."
-            action={
-              <Link href={ROUTES.FARMER_FARMS_NEW}>
-                <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>Add your first farm</Button>
-              </Link>
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {farms.slice(0, 6).map((farm) => (
-              <Link key={farm.farmId} href={`${ROUTES.FARMER_FARMS}/${farm.farmId}`}>
-                <div className="border border-neutral-200 rounded-xl p-4 hover:border-primary-300 hover:bg-primary-50/30 transition-all cursor-pointer">
-                  <p className="font-semibold text-neutral-900 text-sm">{farm.name}</p>
-                  <p className="text-xs text-neutral-500 mt-1">{farm.village ? `${farm.village}, ` : ''}{farm.district}</p>
-                  <p className="text-xs text-neutral-400 mt-1">{farm.area} {farm.areaUnit}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </Card>
     </div>
   );
 }

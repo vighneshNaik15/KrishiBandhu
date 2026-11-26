@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
@@ -135,7 +136,7 @@ export function WeatherDashboard() {
   });
   const [selectedFarmId, setSelectedFarmId] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<WeatherSelection | null>(null);
-  const [locationQuery, setLocationQuery] = useState('');
+  const [locationQuery, setLocationQuery] = useState<string | null>(null);
   const [locationResults, setLocationResults] = useState<WeatherLocation[]>([]);
   const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
   const [locationSearchMessage, setLocationSearchMessage] = useState<string | null>(null);
@@ -153,6 +154,7 @@ export function WeatherDashboard() {
   const farmsLoading = !farmerId || !farmStateIsCurrent || farmState.loading;
   const farmError = farmStateIsCurrent ? farmState.error : null;
   const selectedFarm = farms.find((farm) => farm.farmId === selectedFarmId) ?? null;
+  const defaultLocationQuery = selectedFarm ? getFarmAddress(selectedFarm) : '';
   const forecastKey = selectedLocation
     ? `${selectedLocation.latitude},${selectedLocation.longitude},${selectedLocation.source},${selectedLocation.farmId ?? ''},${selectedLocation.label}`
     : '';
@@ -174,7 +176,6 @@ export function WeatherDashboard() {
 
         setSelectedFarmId(defaultFarm.farmId);
         if (locationSearchStarted.current) return;
-        setLocationQuery(getFarmAddress(defaultFarm));
         const coordinates = getFarmCoordinates(defaultFarm);
         setSelectedLocation(coordinates
           ? {
@@ -257,7 +258,7 @@ export function WeatherDashboard() {
   const handleLocationSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     locationSearchStarted.current = true;
-    const query = locationQuery.trim();
+    const query = (locationQuery ?? defaultLocationQuery).trim();
     if (query.length < 2) {
       setLocationSearchError('Enter at least 2 characters to search for a location.');
       setLocationResults([]);
@@ -327,12 +328,8 @@ export function WeatherDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold font-heading text-neutral-900">Farm Weather</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Current conditions, a 7-day forecast, and general weather-aware farm planning notes.
-        </p>
-      </header>
+      <PageIntro title="Farm Weather"
+        description="Check current conditions, a seven-day forecast, and weather-aware planning notes for your farm or a location you choose." tone="forest" />
 
       {farmError && <Alert variant="error">{farmError}</Alert>}
 
@@ -352,9 +349,9 @@ export function WeatherDashboard() {
           <form onSubmit={handleLocationSearch} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
             <Input
               label="Search or change weather location"
-              placeholder="Search an Indian village, town, district, or city"
+              placeholder={locationQuery === null && defaultLocationQuery ? defaultLocationQuery : 'Search an Indian village, town, district, or city'}
               leftIcon={<Search className="w-4 h-4" aria-hidden />}
-              value={locationQuery}
+              value={locationQuery ?? ''}
               onChange={(event) => {
                 locationSearchStarted.current = true;
                 setLocationQuery(event.target.value);

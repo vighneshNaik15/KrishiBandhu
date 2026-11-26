@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import { useEffect, useMemo, useState } from 'react';
 import { MapPin, Package, Phone, UserRound, Warehouse } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
@@ -54,19 +55,10 @@ export default function StorageFinderPage() {
   const sourceUrl = facilities.find((facility) => facility.sourceUrl)?.sourceUrl;
 
   return (
-    <div className="container-page section-padding space-y-8">
-      <header className="max-w-3xl">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-11 h-11 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center">
-            <Warehouse className="w-5 h-5" aria-hidden />
-          </div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Storage Finder</p>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold font-heading text-neutral-900">Find harvest storage</h1>
-        <p className="mt-2 text-neutral-600">
-          Browse storage records by district. Manager and contact details are shown only when the source provides them.
-        </p>
-      </header>
+    <div className="container-page directory-page">
+      <PageIntro title="Find harvest storage"
+        description="Browse storage records by district. Manager and contact details appear when the source provides them."
+        eyebrow="Storage Finder" icon={<Warehouse />} />
 
       {error && <Alert variant="error">{error}</Alert>}
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import { ProductPhoto } from '@/features/product-media/ProductPhoto';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -97,16 +98,14 @@ export default function MarketplacePage({ marketplace = ROUTES.MARKETPLACE }: { 
   );
 
   return (
-    <div className="container-page section-padding">
-      {/* Header */}
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold font-heading text-neutral-900 mb-2">Agricultural Marketplace</h1>
-        <p className="text-neutral-500 max-w-xl mx-auto">Fresh agricultural products directly from Goa and Konkan farmers.</p>
-      </div>
+    <div className="container-page directory-page">
+      <PageIntro title="Agricultural Marketplace"
+        description="Browse produce listed by farmers across Goa and the Konkan region." tone="forest" />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-8">
+      <div className="directory-filters">
         <Input
+          label="Search listings"
           aria-label="Search marketplace"
           placeholder="Search products, farmers, locations..."
           leftIcon={<Search className="w-4 h-4"/>}
@@ -115,6 +114,7 @@ export default function MarketplacePage({ marketplace = ROUTES.MARKETPLACE }: { 
           className="flex-1"
         />
         <Select
+          label="Product category"
           aria-label="Product category"
           options={CAT_OPTIONS}
           value={category}
@@ -152,32 +152,32 @@ export default function MarketplacePage({ marketplace = ROUTES.MARKETPLACE }: { 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {filtered.map(product => (
             <Link key={product.productId} href={`${marketplace}/${product.productId}`}>
-              <Card hover padding="none" className="overflow-hidden h-full">
+              <Card hover padding="none" className="h-full overflow-hidden">
                 {/* Product image */}
                 <div className="relative h-44 bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
                   {product.images?.[0] ? (
                     <ProductPhoto src={product.images[0]} alt={product.name} />
                   ) : (
-                    <Package className="w-12 h-12 text-primary-300" aria-hidden/>
+                    <Package className="size-11 text-primary-500" strokeWidth={1.35} aria-hidden />
                   )}
                 </div>
 
                 {/* Info */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <h3 className="font-semibold text-neutral-900 truncate">{product.name}</h3>
-                    <Badge variant="success" className="shrink-0 text-xs">{PRODUCT_CATEGORIES[product.category]}</Badge>
+                <div className="space-y-3 p-4 sm:p-5">
+                  <Badge variant="success">{PRODUCT_CATEGORIES[product.category]}</Badge>
+                  <div>
+                    <h2 className="truncate-2 wrap-anywhere text-lg font-semibold text-forest">{product.name}</h2>
+                    <p className="mt-1 flex items-start gap-1.5 text-sm text-neutral-600">
+                      <MapPin className="mt-1 size-3.5 shrink-0 text-primary-600" aria-hidden /> {product.farmerDistrict}, {product.farmerState}
+                    </p>
                   </div>
-                  <p className="text-xs text-neutral-500 flex items-center gap-1 mb-2">
-                    <MapPin className="w-3 h-3 text-primary-400"/> {product.farmerDistrict}, {product.farmerState}
-                  </p>
-                  <p className="text-xs text-neutral-600 truncate-2 mb-3">{product.description}</p>
-                  <div className="flex items-center justify-between">
+                  <p className="truncate-2 text-sm text-neutral-600">{product.description}</p>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-2.5">
                     <div>
-                      <span className="text-lg font-bold text-primary-700">{formatPrice(product.price)}</span>
-                      <span className="text-xs text-neutral-500 ml-1">/{product.unit}</span>
+                      <span className="text-lg font-bold text-forest">{formatPrice(product.price)}</span>
+                      <span className="ml-1 text-xs text-neutral-500">/{product.unit}</span>
                     </div>
-                    <span className="text-xs text-neutral-400">{product.quantityAvailable} {product.unit} left</span>
+                    <span className="text-xs text-neutral-600">{product.quantityAvailable} {product.unit} left</span>
                   </div>
                 </div>
               </Card>

@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -164,17 +165,12 @@ export default function HarvestStoragePage() {
   ];
 
   return (
-    <div className="container-page section-padding space-y-6">
-      <header className="max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Harvesting services · Goa pilot</p>
-        <h1 className="mt-2 text-3xl font-bold font-heading text-neutral-900">Find help after the harvest</h1>
-        <p className="mt-2 text-neutral-600">
-          Discover Goa service providers, browse storage records by source district, and learn general post-harvest handling.
-          Unverified information is clearly marked and is not a booking guarantee.
-        </p>
-      </header>
+    <div className="container-page directory-page">
+      <PageIntro title="Find help after the harvest"
+        description="Discover Goa service providers, browse storage records by district, and explore post-harvest handling. Check availability with the provider before making plans."
+        eyebrow="Goa harvest services pilot" tone="forest" />
 
-      <div role="tablist" aria-label="Harvest and storage sections" className="flex flex-wrap gap-2 border-b border-neutral-200">
+      <div role="tablist" aria-label="Harvest and storage sections" className="flex flex-wrap gap-1.5 rounded-xl border border-neutral-200 bg-white p-2">
         {tabs.map((item) => (
           <button
             key={item.id}

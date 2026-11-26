@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -62,13 +63,11 @@ export default function PublicJobsPage() {
   );
 
   return (
-    <div className="container-page section-padding">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold font-heading text-neutral-900 mb-2">Agricultural Job Board</h1>
-        <p className="text-neutral-500 max-w-xl mx-auto">Find agricultural work opportunities posted by farmers across Goa and Konkan.</p>
-      </div>
+    <div className="container-page directory-page">
+      <PageIntro title="Agricultural Job Board"
+        description="Find agricultural work posted by farmers across Goa and Konkan." tone="forest" />
 
-      <div className="flex gap-3 flex-col sm:flex-row mb-8">
+      <div className="directory-filters">
         <Input aria-label="Search jobs" placeholder="Search jobs..." leftIcon={<Search className="w-4 h-4"/>} value={search} onChange={e => setSearch(e.target.value)} className="flex-1"/>
         <Select aria-label="District" options={districtOptions} value={district} onChange={e => changeDistrict(e.target.value)} disabled={loading} className="sm:w-48"/>
       </div>

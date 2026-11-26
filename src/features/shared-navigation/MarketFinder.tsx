@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import { useEffect, useMemo, useState } from 'react';
 import { MapPin, Sprout, Store } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
@@ -59,20 +60,10 @@ export default function MarketFinderPage() {
   );
 
   return (
-    <div className="container-page section-padding space-y-8">
-      <header className="max-w-3xl">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-11 h-11 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center">
-            <Store className="w-5 h-5" aria-hidden />
-          </div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Market Finder</p>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold font-heading text-neutral-900">Find agricultural markets</h1>
-        <p className="mt-2 text-neutral-600">
-          Browse markets by state and district, then narrow results by the commodity group or variety
-          recorded in the source dataset.
-        </p>
-      </header>
+    <div className="container-page directory-page">
+      <PageIntro title="Find agricultural markets"
+        description="Browse markets by state and district, then filter by commodity group or variety."
+        eyebrow="Market Finder" icon={<Store />} />
 
       {error && <Alert variant="error">{error}</Alert>}
 

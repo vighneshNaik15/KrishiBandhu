@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
+import { AuthFrame, AuthIntro } from '@/features/auth/AuthFrame';
+import { AuthPasswordInput } from '@/features/auth/AuthPasswordInput';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -32,7 +34,6 @@ export default function LoginPage() {
   const { login, logout, retryUserProfile, error, clearError, firebaseUser, userProfile, offlineFarmerUid, loading } = useAuth();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
@@ -42,12 +43,11 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password);
     } catch {
-      // Error is set in context
+      // The auth context supplies the error message.
     }
   };
 
-  // Once logged in, redirect to correct dashboard
-  React.useEffect(() => {
+  useEffect(() => {
     if (userProfile?.isActive) {
       const jobId = new URLSearchParams(window.location.search).get('workerJob');
       const workerJob = userProfile.role === 'worker' && jobId && /^[a-zA-Z0-9_-]+$/.test(jobId);
@@ -56,93 +56,61 @@ export default function LoginPage() {
   }, [userProfile, router]);
 
   return (
-    <div className="w-full max-w-md">
-      <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold font-heading text-neutral-900 mb-1">Welcome back</h1>
-          <p className="text-sm text-neutral-500">Sign in to your KrishiBandhu account</p>
+    <AuthFrame>
+      <AuthIntro title="Welcome back" description="Sign in to pick up where you left off." />
+
+      {error && (
+        <Alert variant="error" className="mb-5" onDismiss={clearError}>{error}</Alert>
+      )}
+      {userProfile && !userProfile.isActive && (
+        <Alert variant="warning" className="mb-5">This account is inactive. Contact KrishiBandhu support if you need access.</Alert>
+      )}
+      {offlineFarmerUid && (
+        <Link className="auth-text-link mb-5 inline-block" href={ROUTES.FARMER_FARMS}>Open saved farms</Link>
+      )}
+      {firebaseUser && !userProfile?.isActive && !loading && (
+        <div className="mb-5 flex flex-wrap gap-2">
+          {!offlineFarmerUid && (
+            <Button type="button" variant="secondary" disabled={isSubmitting} onClick={retryUserProfile}>
+              Retry loading profile
+            </Button>
+          )}
+          <Button type="button" variant="ghost" disabled={isSubmitting} onClick={logout}>Sign out</Button>
         </div>
+      )}
 
-        {error && (
-          <Alert variant="error" className="mb-6" onDismiss={clearError}>
-            {error}
-          </Alert>
-        )}
-        {userProfile && !userProfile.isActive && (
-          <Alert variant="warning" className="mb-6">This account is inactive. Contact KrishiBandhu support if you need access.</Alert>
-        )}
-        {offlineFarmerUid && (
-          <Link className="mb-6 block text-primary-700 underline" href={ROUTES.FARMER_FARMS}>Open saved farms</Link>
-        )}
-        {firebaseUser && !userProfile?.isActive && !loading && (
-          <div className="mb-6 flex flex-wrap gap-2">
-            {!offlineFarmerUid && (
-              <Button type="button" variant="secondary" disabled={isSubmitting} onClick={retryUserProfile}>
-                Retry loading profile
-              </Button>
-            )}
-            <Button type="button" variant="ghost" disabled={isSubmitting} onClick={logout}>Sign out</Button>
-          </div>
-        )}
+      <form onSubmit={handleSubmit(onSubmit)} className="auth-form" noValidate>
+        <Input
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          required
+          leftIcon={<Mail aria-hidden className="size-4" />}
+          error={errors.email?.message}
+          {...register('email')}
+        />
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          <Input
-            label="Email address"
-            type="email"
-            autoComplete="email"
-            required
-            leftIcon={<Mail className="w-4 h-4" />}
-            error={errors.email?.message}
-            {...register('email')}
-          />
+        <AuthPasswordInput
+          label="Password"
+          autoComplete="current-password"
+          required
+          visible={showPassword}
+          onToggle={() => setShowPassword(current => !current)}
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
-          <Input
-            label="Password"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete="current-password"
-            required
-            leftIcon={<Lock className="w-4 h-4" />}
-            rightIcon={
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-neutral-400 hover:text-neutral-700"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            }
-            error={errors.password?.message}
-            {...register('password')}
-          />
+        <Link href={ROUTES.FORGOT_PASSWORD} className="auth-text-link auth-recovery">Forgot password?</Link>
 
-          <div className="flex justify-end -mt-2">
-            <Link
-              href={ROUTES.FORGOT_PASSWORD}
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-            >
-              Forgot password?
-            </Link>
-          </div>
+        <Button type="submit" fullWidth isLoading={!error && (isSubmitting || loading)}
+          disabled={isSubmitting || loading} size="lg" className="auth-submit">
+          Sign in
+        </Button>
+      </form>
 
-          <Button
-            type="submit"
-            fullWidth
-            isLoading={!error && (isSubmitting || loading)}
-            disabled={isSubmitting || loading}
-            size="lg"
-          >
-            Sign in
-          </Button>
-        </form>
-
-        <p className="text-center text-sm text-neutral-500 mt-6">
-          Don&apos;t have an account?{' '}
-          <Link href={ROUTES.REGISTER} className="text-primary-600 font-semibold hover:text-primary-700">
-            Create one free
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="auth-footer-link">
+        New to KrishiBandhu? <Link href={ROUTES.REGISTER} className="auth-text-link">Create an account</Link>
+      </p>
+    </AuthFrame>
   );
 }

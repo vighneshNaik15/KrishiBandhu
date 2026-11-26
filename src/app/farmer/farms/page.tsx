@@ -1,12 +1,13 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import React, { useMemo, useState } from 'react';
 import { Plus, TreePalm, MapPin, Ruler, Edit, Trash2 } from 'lucide-react';
 import { FarmMap } from '@/features/farms/ClientFarmMap';
 import { useFarmWorkspace } from '@/features/farms/FarmWorkspace';
 import FarmForm from '@/features/farms/FarmForm';
 import { FarmDetail } from '@/features/farms/FarmDetail';
-import { Card, EmptyState } from '@/components/ui/Card';
+import { Card, EmptyState, LoadingState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { SOIL_TYPE_LABELS, AREA_UNIT_LABELS } from '@/models/farm';
@@ -47,17 +48,13 @@ export default function FarmerFarmsPage() {
 
   return (
     <div id="farm-mapping" className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-heading text-neutral-900">My Farms</h1>
-          <p className="text-sm text-neutral-500 mt-1">Manage all your farms in one place.</p>
-        </div>
-        <Button onClick={() => setEditor({})} leftIcon={<Plus className="w-4 h-4" />}>Add Farm</Button>
-      </div>
+      <PageIntro title="My Farms"
+        description="Manage your plots and boundaries. You can make changes offline and sync them when you reconnect." icon={<TreePalm />}
+        actions={<Button onClick={() => setEditor({})} leftIcon={<Plus className="size-4" />}>Add Farm</Button>} />
 
       {actionError && <Alert variant="error" onDismiss={() => setActionError(null)}>{actionError}</Alert>}
 
-      <div className="flex flex-wrap gap-2" aria-label="Farm views">
+      <div className="inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-neutral-200 bg-white p-1.5" role="group" aria-label="Farm views">
         <Button variant={view === 'list' ? 'primary' : 'secondary'} aria-pressed={view === 'list'}
           onClick={() => setView('list')}>Farm list</Button>
         <Button variant={view === 'map' ? 'primary' : 'secondary'} aria-pressed={view === 'map'}
@@ -65,9 +62,7 @@ export default function FarmerFarmsPage() {
       </div>
 
       {!ready && !error ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3].map(i => <div key={i} className="h-48 bg-neutral-100 rounded-xl animate-pulse"/>)}
-        </div>
+        <LoadingState label="Loading farm records…" />
       ) : view === 'map' ? (
         <Card className="space-y-3">
           {shapes.length === 0 && <p className="text-sm text-neutral-600">Add a boundary to a farm to show it on the map.</p>}
@@ -97,13 +92,13 @@ export default function FarmerFarmsPage() {
                   <TreePalm className="w-5 h-5 text-primary-600" aria-hidden />
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => setEditor({ farm })} className="p-1.5 rounded-lg text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors" aria-label="Edit farm">
+                  <button onClick={() => setEditor({ farm })} className="grid size-11 place-items-center rounded-lg text-neutral-600 hover:bg-primary-50 hover:text-primary-700" aria-label="Edit farm">
                       <Edit className="w-4 h-4"/>
                   </button>
                   <button
                     onClick={() => handleDelete(farm)}
                     disabled={deleting === farm.farmId}
-                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    className="grid size-11 place-items-center rounded-lg text-neutral-600 hover:bg-red-50 hover:text-red-700"
                     aria-label="Delete farm"
                   >
                     <Trash2 className="w-4 h-4"/>

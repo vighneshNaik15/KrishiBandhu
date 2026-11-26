@@ -1,8 +1,10 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import { auth } from '@/lib/firebase/config';
 import { useState, useRef, useEffect, type FormEvent } from 'react';
-import { Bot, Loader2, Mic, RotateCcw, Send, Sparkles, User } from 'lucide-react';
+import { Bot, Loader2, Mic, Send, Sparkles, User } from 'lucide-react';
+import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -159,52 +161,30 @@ export default function AdvisoryPage() {
   };
 
   return (
-    <div className="flex flex-col h-full max-w-3xl mx-auto gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary-100 p-3 rounded-xl">
-            <Sparkles className="h-6 w-6 text-primary-700" aria-hidden />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">AI Advisory</h1>
-            <p className="text-sm text-neutral-500">Ask anything about farming in the Konkan region</p>
-          </div>
-        </div>
-        {messages.length > 0 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleReset}
-            className="flex items-center gap-1 text-xs"
-          >
-            <RotateCcw className="h-3 w-3" />
-            New chat
-          </Button>
-        )}
-      </div>
+    <div className="mx-auto flex max-w-4xl flex-col gap-4">
+      <PageIntro title="AI Advisory" icon={<Sparkles />}
+        description="Ask about crops, soil, or seasonal farm work in the Konkan region."
+        actions={messages.length > 0 && (
+          <Button variant="secondary" onClick={handleReset}>New chat</Button>
+        )} />
 
-      {/* Chat area */}
-      <Card className="flex flex-col flex-1 min-h-[480px] overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <Card className="flex min-h-[30rem] flex-col overflow-hidden" padding="none">
+        <div role="log" aria-label="Advisory conversation" className="flex-1 space-y-4 p-4 sm:p-6">
           {/* Welcome message */}
           {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-full py-12 gap-6">
-              <div className="bg-primary-50 p-5 rounded-2xl">
-                <Bot className="h-12 w-12 text-primary-600" />
+            <div className="flex flex-col items-center justify-center gap-5 py-6 sm:py-9">
+              <div className="rounded-2xl bg-primary-50 p-4">
+                <Bot className="size-8 text-primary-700" aria-hidden />
               </div>
               <div className="text-center space-y-1">
-                <p className="font-semibold text-neutral-800">Your AI farming advisor</p>
-                <p className="text-sm text-neutral-500 max-w-sm">
-                  Ask me about crops, pests, fertilizers, weather, soil, government schemes, and more.
-                </p>
+                <h2 className="font-heading text-3xl font-normal text-forest">What’s happening on your farm?</h2>
               </div>
               <div className="grid gap-2 w-full max-w-sm">
                 {STARTER_QUESTIONS.map((q) => (
                   <button
                     key={q}
                     onClick={() => void sendMessage(q)}
-                    className="text-left text-sm px-4 py-2.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-primary-300 transition-colors text-neutral-700"
+                    className="min-h-11 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-left text-sm text-neutral-700 transition-colors hover:border-primary-300 hover:bg-primary-50"
                   >
                     {q}
                   </button>
@@ -225,9 +205,9 @@ export default function AdvisoryPage() {
                 </div>
               )}
 
-              <div className={`max-w-[80%] space-y-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
+              <div className={`min-w-0 max-w-[80%] space-y-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
                 <div
-                  className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`rounded-2xl px-4 py-3 text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap ${
                     msg.role === 'user'
                       ? 'bg-primary-600 text-white rounded-tr-sm'
                       : 'bg-neutral-100 text-neutral-800 rounded-tl-sm'
@@ -237,7 +217,7 @@ export default function AdvisoryPage() {
                 </div>
 
                 {msg.role === 'assistant' && msg.confidence !== undefined && (
-                  <p className="text-[10px] text-neutral-400 px-1">
+                  <p className="px-1 text-xs text-neutral-600">
                     Confidence: {Math.round(msg.confidence * 100)}%
                   </p>
                 )}
@@ -268,34 +248,27 @@ export default function AdvisoryPage() {
 
           {/* Loading indicator */}
           {isLoading && (
-            <div className="flex gap-3 justify-start">
+            <div role="status" className="flex justify-start gap-3">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
                 <Bot className="h-4 w-4 text-primary-700" />
               </div>
               <div className="bg-neutral-100 rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 bg-neutral-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                  <span className="h-2 w-2 bg-neutral-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                  <span className="h-2 w-2 bg-neutral-400 rounded-full animate-bounce" />
-                </div>
+                <span className="text-sm text-neutral-600">Preparing your answer…</span>
               </div>
             </div>
           )}
 
           {/* Error */}
-          {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+          {error && <Alert variant="error">{error}</Alert>}
 
           <div ref={bottomRef} />
         </div>
 
         {/* Input bar */}
-        <div className="border-t border-neutral-100 p-3">
-          <form onSubmit={event => void handleSubmit(event)} className="flex gap-2">
+        <div className="border-t border-neutral-200 bg-ivory p-3 sm:p-5">
+          <form onSubmit={event => void handleSubmit(event)} className="flex items-center gap-2 [&>div:first-child]:flex-1">
             <Input
+              aria-label="Ask a farming question"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about crops, pests, soil, schemes…"
@@ -315,11 +288,11 @@ export default function AdvisoryPage() {
                 <Mic className={`h-4 w-4 ${isListening ? 'text-red-500 animate-pulse' : ''}`} />
               </Button>
             )}
-            <Button type="submit" size="sm" disabled={isLoading || !input.trim()} className="px-3">
+            <Button type="submit" aria-label="Send question" disabled={isLoading || !input.trim()} className="shrink-0 px-3">
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
-          <p className="text-[11px] text-neutral-400 mt-2 text-center">
+          <p className="mt-2 text-center text-xs text-neutral-600">
             AI advice is for guidance only. Consult your local KVK for expert verification.
           </p>
         </div>

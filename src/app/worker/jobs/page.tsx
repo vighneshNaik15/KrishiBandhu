@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Search, MapPin, Calendar, Users, IndianRupee } from 'lucide-react';
@@ -49,13 +50,11 @@ export default function WorkerJobsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-heading text-neutral-900">Find Agricultural Jobs</h1>
-        <p className="text-sm text-neutral-500 mt-1">Browse jobs posted by farmers across Goa and Konkan.</p>
-      </div>
+      <PageIntro title="Find Agricultural Jobs"
+        description="Browse work posted by farmers across Goa and Konkan." />
 
       {/* Filters */}
-      <div className="flex gap-3 flex-col sm:flex-row">
+      <div className="directory-filters">
         <Input
           aria-label="Search jobs"
           placeholder="Search jobs by title or category..."

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ImageOff } from 'lucide-react';
+import { ImageOff } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
-import { Card, EmptyState } from '@/components/ui/Card';
+import { Card, EmptyState, LoadingState } from '@/components/ui/Card';
+import { ButtonLink } from '@/components/ui/Button';
+import { PageIntro } from '@/components/ui/PageIntro';
 import { useAuth } from '@/features/auth/AuthContext';
 import type { CropDiseaseAssessment } from '@/models/cropDiseaseAssessment';
 import { cropDiseaseService } from '@/services/cropDiseaseService';
@@ -85,24 +87,13 @@ export function CropDiseaseHistoryPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header className="space-y-3">
-        <Link
-          href={ROUTES.FARMER_CROP_DOCTOR}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-800"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          AI Crop Doctor
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold font-heading text-neutral-900">Disease assessment history</h1>
-          <p className="mt-1 text-sm text-neutral-600">Private reports saved to your farmer account.</p>
-        </div>
-      </header>
+      <PageIntro title="Disease assessment history" description="Private reports saved to your farmer account."
+        actions={<ButtonLink variant="secondary" href={ROUTES.FARMER_CROP_DOCTOR}>AI Crop Doctor</ButtonLink>} />
 
       {error ? (
         <Alert variant="error" title="History could not be loaded">{error}</Alert>
       ) : loading ? (
-        <Card><p className="text-sm text-neutral-500">Loading your saved reports…</p></Card>
+        <LoadingState label="Loading your saved reports…" />
       ) : assessments.length === 0 ? (
         <Card>
           <EmptyState

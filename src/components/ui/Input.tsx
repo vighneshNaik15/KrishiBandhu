@@ -14,7 +14,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? generatedId;
 
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         {label && (
           <label
             htmlFor={inputId}
@@ -36,7 +36,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={[
-              'w-full rounded-lg border bg-white text-neutral-900 placeholder-neutral-400',
+              'w-full rounded-lg border bg-white text-neutral-900 placeholder-neutral-500',
               'transition-colors duration-150',
               'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
               'disabled:bg-neutral-100 disabled:text-neutral-500 disabled:cursor-not-allowed',
@@ -107,7 +107,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={inputId}
           className={[
-            'w-full rounded-lg border bg-white text-neutral-900 placeholder-neutral-400',
+            'w-full rounded-lg border bg-white text-neutral-900 placeholder-neutral-500',
             'px-3.5 py-2.5 text-base min-h-[120px] resize-y',
             'transition-colors duration-150',
             'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
@@ -170,7 +170,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           id={inputId}
           className={[
             'w-full rounded-lg border bg-white text-neutral-900',
-            'px-3.5 py-2.5 text-base h-11 appearance-none cursor-pointer',
+            'pl-3.5 pr-9 py-2.5 text-base h-11 appearance-none cursor-pointer',
             'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2378716c\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_12px_center]',
             'transition-colors duration-150',
             'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
@@ -183,6 +183,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             .filter(Boolean)
             .join(' ')}
           aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
           {...props}
         >
           {placeholder && (
@@ -198,11 +199,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         </select>
 
         {error && (
-          <p className="text-sm text-red-600" role="alert">
+          <p id={`${inputId}-error`} className="text-sm text-red-600" role="alert">
             {error}
           </p>
         )}
-        {hint && !error && <p className="text-sm text-neutral-500">{hint}</p>}
+        {hint && !error && <p id={`${inputId}-hint`} className="text-sm text-neutral-500">{hint}</p>}
       </div>
     );
   }

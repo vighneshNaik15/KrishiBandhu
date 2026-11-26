@@ -1,17 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, User, Mail, Lock, Phone } from 'lucide-react';
+import { User, Mail, Lock, Phone } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
-import { Input, Select } from '@/components/ui/Input';
+import { RegistrationFrame } from '@/features/auth/AuthFrame';
+import { AuthPasswordInput } from '@/features/auth/AuthPasswordInput';
+import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { ROUTES, INDIAN_STATES } from '@/lib/constants';
+import { ROUTES } from '@/lib/constants';
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -52,31 +53,54 @@ export default function RegisterBuyerPage() {
   };
 
   return (
-    <div className="w-full max-w-lg">
-      <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold font-heading text-neutral-900 mb-1">Register as Buyer</h1>
-          <p className="text-sm text-neutral-500">Buy fresh agricultural products directly from Konkan farmers.</p>
+    <RegistrationFrame title="Create your buyer account" description="Browse seasonal produce from farmers across Goa and Konkan.">
+      {error && <Alert variant="error" className="mb-5" onDismiss={clearError}>{error}</Alert>}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="auth-form" noValidate>
+        <div className="auth-field-pair">
+          <Input
+            label="Full name" required autoComplete="name"
+            leftIcon={<User aria-hidden className="size-4" />}
+            error={errors.name?.message}
+            {...register('name')}
+          />
+          <Input
+            label="Email address" type="email" required autoComplete="email"
+            leftIcon={<Mail aria-hidden className="size-4" />}
+            error={errors.email?.message}
+            {...register('email')}
+          />
         </div>
 
-        {error && (
-          <Alert variant="error" className="mb-6" onDismiss={clearError}>{error}</Alert>
-        )}
+        <Input
+          label="Mobile number (optional)" type="tel" autoComplete="tel"
+          leftIcon={<Phone aria-hidden className="size-4" />}
+          placeholder="10-digit number"
+          error={errors.phone?.message}
+          {...register('phone')}
+        />
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-          <Input label="Full name" required leftIcon={<User className="w-4 h-4" />} error={errors.name?.message} {...register('name')} />
-          <Input label="Email address" type="email" required autoComplete="email" leftIcon={<Mail className="w-4 h-4" />} error={errors.email?.message} {...register('email')} />
-          <Input label="Mobile number (optional)" type="tel" leftIcon={<Phone className="w-4 h-4" />} error={errors.phone?.message} placeholder="10-digit number" {...register('phone')} />
-          <Input label="Password" type={showPass ? 'text' : 'password'} required autoComplete="new-password" leftIcon={<Lock className="w-4 h-4" />} rightIcon={<button type="button" onClick={() => setShowPass(!showPass)} className="text-neutral-400 hover:text-neutral-700">{showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} hint="At least 8 characters" error={errors.password?.message} {...register('password')} />
-          <Input label="Confirm password" type="password" required autoComplete="new-password" leftIcon={<Lock className="w-4 h-4" />} error={errors.confirmPassword?.message} {...register('confirmPassword')} />
-          <Button type="submit" fullWidth isLoading={isSubmitting} size="lg" className="mt-2">Create Buyer Account</Button>
-        </form>
+        <div className="auth-field-pair">
+          <AuthPasswordInput
+            label="Password" required autoComplete="new-password"
+            visible={showPass}
+            onToggle={() => setShowPass(current => !current)}
+            hint="At least 8 characters"
+            error={errors.password?.message}
+            {...register('password')}
+          />
+          <Input
+            label="Confirm password" type="password" required autoComplete="new-password"
+            leftIcon={<Lock aria-hidden className="size-4" />}
+            error={errors.confirmPassword?.message}
+            {...register('confirmPassword')}
+          />
+        </div>
 
-        <p className="text-center text-sm text-neutral-500 mt-6">
-          Already have an account?{' '}
-          <Link href={ROUTES.LOGIN} className="text-primary-600 font-semibold hover:text-primary-700">Sign in</Link>
-        </p>
-      </div>
-    </div>
+        <Button type="submit" fullWidth isLoading={isSubmitting} size="lg" className="auth-submit">
+          Create Buyer Account
+        </Button>
+      </form>
+    </RegistrationFrame>
   );
 }

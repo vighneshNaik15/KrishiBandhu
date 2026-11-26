@@ -42,9 +42,9 @@ export function Alert({ variant = 'info', title, children, onDismiss, className 
 
   return (
     <div
-      role="alert"
+      role={variant === 'error' || variant === 'warning' ? 'alert' : 'status'}
       className={[
-        'flex gap-3 rounded-lg border p-4',
+        'flex items-start gap-3 rounded-xl border p-4',
         styles,
         className,
       ]
@@ -62,7 +62,7 @@ export function Alert({ variant = 'info', title, children, onDismiss, className 
         <button
           type="button"
           onClick={onDismiss}
-          className="shrink-0 p-0.5 rounded hover:bg-black/10 transition-colors"
+          className="-my-1 grid size-8 shrink-0 place-items-center rounded-lg transition-colors hover:bg-black/10"
           aria-label="Dismiss"
         >
           <X className="w-4 h-4" />

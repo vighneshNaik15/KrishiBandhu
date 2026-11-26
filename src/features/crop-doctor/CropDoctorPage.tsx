@@ -1,5 +1,6 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -13,7 +14,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/features/auth/AuthContext';
 import type {
@@ -149,23 +150,10 @@ export function CropDoctorPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary-700">AI Crop Doctor</p>
-          <h1 className="text-2xl font-bold font-heading text-neutral-900">
-            Crop Disease Detection
-          </h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            Get a model-generated suggestion for one of the supported crop classes.
-          </p>
-        </div>
-        <Link
-          href={ROUTES.FARMER_CROP_DOCTOR_HISTORY}
-          className="text-sm font-semibold text-primary-700 hover:text-primary-800"
-        >
-          View assessment history
-        </Link>
-      </header>
+      <PageIntro title="Crop Disease Detection"
+        description="Select a crop and upload a clear photo for a model-generated assessment."
+        eyebrow="AI Crop Doctor"
+        actions={<ButtonLink href={ROUTES.FARMER_CROP_DOCTOR_HISTORY} variant="secondary">View assessment history</ButtonLink>} />
 
       <Alert variant="warning" title="Model output is not a diagnosis">
         The model always selects among its known classes and has not been validated to recognize
@@ -295,9 +283,9 @@ export function CropDoctorPage() {
 
         <div className="space-y-5">
           {!prediction && (
-            <Card className="flex min-h-64 flex-col items-center justify-center text-center">
+            <Card className="flex min-h-72 flex-col items-center justify-center bg-primary-50/40 text-center">
               <ShieldAlert className="h-10 w-10 text-neutral-300" aria-hidden />
-              <h2 className="mt-3 font-semibold text-neutral-800">Your assessment will appear here</h2>
+              <h2 className="mt-4 font-heading text-3xl font-normal text-forest">Your assessment will appear here</h2>
               <p className="mt-1 max-w-sm text-sm text-neutral-500">
                 Select the matching crop and submit a clear image. A model score does not confirm
                 disease or identify where symptoms are located.

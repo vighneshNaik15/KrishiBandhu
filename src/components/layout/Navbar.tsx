@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Leaf, User, LogOut, ChevronDown } from 'lucide-react';
+import { ChevronDown, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
+import { Brand } from '@/components/layout/Brand';
+import { ButtonLink } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/AuthContext';
-import { APP_NAME, ROUTES } from '@/lib/constants';
-import { Button } from '@/components/ui/Button';
+import { ROUTES } from '@/lib/constants';
 
-const NAV_LINKS = [
+const navLinks = [
   { label: 'Marketplace', href: ROUTES.MARKETPLACE },
   { label: 'Jobs', href: ROUTES.JOBS },
   { label: 'Market Finder', href: ROUTES.MARKET_FINDER },
@@ -17,157 +18,104 @@ const NAV_LINKS = [
   { label: 'About', href: ROUTES.ABOUT },
 ];
 
+const dashboardRoutes = {
+  farmer: ROUTES.FARMER_DASHBOARD,
+  worker: ROUTES.WORKER_DASHBOARD,
+  buyer: ROUTES.BUYER_DASHBOARD,
+  admin: ROUTES.ADMIN_DASHBOARD,
+};
+
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const accountButton = useRef<HTMLButtonElement>(null);
   const { firebaseUser, userProfile, logout } = useAuth();
   const pathname = usePathname();
+  const dashboard = userProfile ? dashboardRoutes[userProfile.role] : ROUTES.LOGIN;
 
-  const handleLogout = async () => {
-    setUserMenuOpen(false);
+  const closeMenu = () => setMenuOpen(false);
+  const signOut = async () => {
+    setAccountOpen(false);
+    closeMenu();
     await logout();
   };
 
-  const getDashboardRoute = () => {
-    if (!userProfile) return ROUTES.LOGIN;
-    const map = {
-      farmer: ROUTES.FARMER_DASHBOARD,
-      worker: ROUTES.WORKER_DASHBOARD,
-      buyer: ROUTES.BUYER_DASHBOARD,
-      admin: ROUTES.ADMIN_DASHBOARD,
-    };
-    return map[userProfile.role];
-  };
+  const links = (mobile = false) => navLinks.map(({ label, href }) => (
+    <Link key={href} href={href}
+      aria-current={pathname === href || pathname.startsWith(href + '/') ? 'page' : undefined}
+      className="public-nav-link" onClick={mobile ? closeMenu : undefined}>
+      {label}
+    </Link>
+  ));
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-neutral-200 shadow-xs">
-      <div className="container-page">
-        <nav className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href={ROUTES.HOME} className="flex items-center gap-2 font-bold text-xl text-primary-700">
-            <Leaf className="w-6 h-6 text-primary-600" aria-hidden />
-            <span className="font-heading">{APP_NAME}</span>
-          </Link>
+    <header className="public-header" onKeyDown={event => {
+      if (event.key !== 'Escape') return;
+      if (menuOpen) { closeMenu(); menuButton.current?.focus(); }
+      if (accountOpen) { setAccountOpen(false); accountButton.current?.focus(); }
+    }}>
+      <a href="#public-content" className="skip-link">Skip to content</a>
+      <div className="container-page public-header-row">
+        <Brand onClick={closeMenu} showLogo />
+        <nav aria-label="Main navigation" className="public-desktop-nav">{links()}</nav>
 
-          {/* Desktop nav */}
-          <div className="hidden lg:flex items-center gap-6">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={[
-                  'text-sm font-medium transition-colors',
-                  (pathname === link.href || pathname.startsWith(link.href + '/'))
-                    ? 'text-primary-700'
-                    : 'text-neutral-600 hover:text-neutral-900',
-                ].join(' ')}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+        <div className="public-desktop-actions">
+          {firebaseUser ? (
+            <div className="relative" onBlur={event => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setAccountOpen(false);
+            }}>
+              <button type="button" ref={accountButton} aria-controls="public-account" aria-expanded={accountOpen}
+                onClick={() => setAccountOpen(!accountOpen)}
+                className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-forest hover:bg-primary-50">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-lime text-forest" aria-hidden>
+                  {userProfile?.name?.charAt(0)?.toUpperCase() ?? <LayoutDashboard className="size-4" />}
+                </span>
+                <span className="max-w-28 truncate">{userProfile?.name ?? 'Account'}</span>
+                <ChevronDown className="size-4" aria-hidden />
+              </button>
+              {accountOpen && (
+                <div id="public-account" className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg">
+                  <p className="truncate border-b border-neutral-100 px-3 py-2 text-sm text-neutral-600">{userProfile?.email}</p>
+                  <Link href={dashboard} className="public-nav-link mt-1 flex items-center gap-2" onClick={() => setAccountOpen(false)}>
+                    <LayoutDashboard className="size-4" aria-hidden /> Dashboard
+                  </Link>
+                  <button type="button" onClick={signOut} className="public-nav-link flex w-full items-center gap-2 text-red-700">
+                    <LogOut className="size-4" aria-hidden /> Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <ButtonLink href={ROUTES.LOGIN} variant="ghost" size="sm">Sign in</ButtonLink>
+              <ButtonLink href={ROUTES.REGISTER} size="sm">Get started</ButtonLink>
+            </>
+          )}
+        </div>
 
-          {/* Desktop auth */}
-          <div className="hidden lg:flex items-center gap-3">
-            {firebaseUser ? (
-              <div className="relative">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors px-3 py-2 rounded-lg hover:bg-neutral-100"
-                >
-                  <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs">
-                    {userProfile?.name?.charAt(0)?.toUpperCase() ?? <User className="w-4 h-4" />}
-                  </div>
-                  <span className="max-w-[120px] truncate">{userProfile?.name ?? 'Account'}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-                {userMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl border border-neutral-200 shadow-lg py-1 z-10">
-                    <div className="px-3 py-2 border-b border-neutral-100">
-                      <p className="text-xs text-neutral-500">Signed in as</p>
-                      <p className="text-sm font-medium text-neutral-800 truncate">{userProfile?.email}</p>
-                    </div>
-                    <Link
-                      href={getDashboardRoute()}
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <User className="w-4 h-4" />
-                      Dashboard
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sign out
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link href={ROUTES.LOGIN}>
-                  <Button variant="ghost" size="sm">Sign in</Button>
-                </Link>
-                <Link href={ROUTES.REGISTER}>
-                  <Button variant="primary" size="sm">Get started</Button>
-                </Link>
-              </>
-            )}
-          </div>
-
-          {/* Mobile hamburger */}
-          <button
-            className="lg:hidden p-2 rounded-lg text-neutral-600 hover:bg-neutral-100"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-          >
-            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </nav>
+        <button type="button" ref={menuButton} className="public-menu-button" aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-controls="public-mobile-nav" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
+          {menuOpen ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
+        </button>
       </div>
 
-      {/* Mobile menu */}
       {menuOpen && (
-        <div className="lg:hidden border-t border-neutral-200 bg-white py-3">
-          <div className="container-page flex flex-col gap-1">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="px-3 py-2.5 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                onClick={() => setMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="border-t border-neutral-100 mt-2 pt-2 flex flex-col gap-2">
+        <div className="public-mobile-panel" id="public-mobile-nav">
+          <div className="container-page">
+            <nav aria-label="Main navigation" className="grid gap-1">{links(true)}</nav>
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-200 pt-3">
               {firebaseUser ? (
                 <>
-                  <Link
-                    href={getDashboardRoute()}
-                    className="px-3 py-2.5 rounded-lg text-sm font-medium text-primary-700 bg-primary-50"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                  <button
-                    onClick={() => { handleLogout(); setMenuOpen(false); }}
-                    className="text-left px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
-                  >
-                    Sign out
+                  <ButtonLink href={dashboard} onClick={closeMenu}>Dashboard</ButtonLink>
+                  <button type="button" onClick={signOut} className="public-nav-link flex items-center gap-2 text-red-700">
+                    <LogOut className="size-4" aria-hidden /> Sign out
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href={ROUTES.LOGIN} onClick={() => setMenuOpen(false)}>
-                    <Button variant="secondary" size="sm" fullWidth>Sign in</Button>
-                  </Link>
-                  <Link href={ROUTES.REGISTER} onClick={() => setMenuOpen(false)}>
-                    <Button variant="primary" size="sm" fullWidth>Get started</Button>
-                  </Link>
+                  <ButtonLink href={ROUTES.LOGIN} variant="secondary" onClick={closeMenu}>Sign in</ButtonLink>
+                  <ButtonLink href={ROUTES.REGISTER} onClick={closeMenu}>Get started</ButtonLink>
                 </>
               )}
             </div>

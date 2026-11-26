@@ -1,13 +1,14 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ShoppingBag, Package, Search } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { orderService } from '@/services/orderService';
-import { StatCard, EmptyState, Card } from '@/components/ui/Card';
+import { Card, EmptyState, LoadingState, StatCard } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
+import { ButtonLink } from '@/components/ui/Button';
 import { OrderStatusBadge } from '@/components/ui/Badge';
 import { ROUTES } from '@/lib/constants';
 import { formatDate, formatPrice } from '@/utils/formatters';
@@ -37,13 +38,10 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {ordersOnly ? <h1 className="text-2xl font-bold font-heading">My Orders</h1> : <>
-      <div>
-        <h1 className="text-2xl font-bold font-heading text-neutral-900">
-          Welcome, {userProfile?.name?.split(' ')[0]} 👋
-        </h1>
-        <p className="text-sm text-neutral-500 mt-1">Browse fresh Konkan products and manage your orders.</p>
-      </div>
+      {ordersOnly ? <PageIntro title="My Orders" description="Review the status of your produce orders." /> : <>
+      <PageIntro title={`Welcome, ${userProfile?.name?.split(' ')[0] ?? 'buyer'}`} eyebrow="Buyer overview" tone="photo"
+        description="Discover produce across Goa and Konkan and manage your orders."
+        actions={<ButtonLink href={ROUTES.BUYER_MARKETPLACE} variant="lime" leftIcon={<Search className="size-4" />}>Browse Marketplace</ButtonLink>} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard label="Total Orders" value={loading || error ? '—' : orders.length} icon={<ShoppingBag className="w-5 h-5" />} accentColor="blue" />
@@ -51,17 +49,6 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
         <StatCard label="Pending" value={loading || error ? '—' : pendingOrders.length} icon={<Package className="w-5 h-5" />} accentColor="green" />
       </div>
 
-      <Card>
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="flex-1">
-            <h2 className="font-semibold text-neutral-900">Browse Konkan Products</h2>
-            <p className="text-sm text-neutral-500 mt-1">Coconut, cashew, kokum, spices and more — directly from farmers.</p>
-          </div>
-          <Link href={ROUTES.BUYER_MARKETPLACE}>
-            <Button leftIcon={<Search className="w-4 h-4" />}>Browse Marketplace</Button>
-          </Link>
-        </div>
-      </Card>
       </>}
 
       {error && <Alert variant="error">{error}</Alert>}
@@ -73,12 +60,12 @@ export default function BuyerDashboard({ ordersOnly = false }: { ordersOnly?: bo
         </div>}
 
         {loading ? (
-          <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-neutral-100 rounded-lg animate-pulse" />)}</div>
+          <LoadingState label="Loading orders…" />
         ) : error ? null : orders.length === 0 ? (
           <EmptyState
             title="No orders yet"
             description="You can browse product listings. New order requests will appear here."
-            action={<Link href={ROUTES.BUYER_MARKETPLACE}><Button size="sm">Browse Products</Button></Link>}
+            action={<ButtonLink href={ROUTES.BUYER_MARKETPLACE} variant="secondary">Browse Products</ButtonLink>}
           />
         ) : (
           <div className="divide-y divide-neutral-100">

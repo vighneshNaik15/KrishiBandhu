@@ -1,5 +1,7 @@
 'use client';
 
+import { PageIntro } from '@/components/ui/PageIntro';
+
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
@@ -116,10 +118,8 @@ export default function FarmForm({ farm, onClose }: { farm?: Farm; onClose?: () 
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-heading text-neutral-900">{farm ? 'Edit Farm' : 'Add New Farm'}</h1>
-        <p className="text-sm text-neutral-500 mt-1">Enter the details of your farm.</p>
-      </div>
+      <PageIntro title={farm ? 'Edit Farm' : 'Add New Farm'}
+        description="Enter the farm details and use the map if you want to record a field boundary." />
 
       {error && <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert>}
 

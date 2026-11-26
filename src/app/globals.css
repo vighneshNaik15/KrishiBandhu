@@ -1,28 +1,72 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
+@import "./landing.css";
+@import "./auth.css";
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("./fonts/dm-sans.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("./fonts/instrument-serif.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("./fonts/instrument-serif-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
 
 /* ============================================================
    KOKANSAMPADA DESIGN SYSTEM
    Tailwind v4 @theme configuration
    ============================================================ */
 
+:root {
+  color-scheme: light;
+  --forest: #10271f;
+  --forest-soft: #233d30;
+  --ivory: #f7f6f0;
+  --lime: #d9e8b0;
+  --sand: #d6a66a;
+  --surface: #fff;
+  --muted: #54645b;
+  --line: #e1e5db;
+  --panel-shadow: 0 2px 4px rgb(16 39 31 / 3%), 0 12px 28px -20px rgb(16 39 31 / 24%);
+}
+
 @theme inline {
   /* ── Fonts ── */
-  --font-heading: var(--font-playfair), Georgia, serif;
-  --font-body: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading: "Instrument Serif", Georgia, serif;
+  --font-body: "DM Sans", "Segoe UI", sans-serif;
+  --color-forest: var(--forest);
+  --color-forest-soft: var(--forest-soft);
+  --color-ivory: var(--ivory);
+  --color-lime: var(--lime);
+  --color-sand: var(--sand);
 
   /* ── Primary Green (Agriculture / Konkan nature) ── */
-  --color-primary-50:  #f0fdf4;
-  --color-primary-100: #dcfce7;
-  --color-primary-200: #bbf7d0;
-  --color-primary-300: #86efac;
-  --color-primary-400: #4ade80;
-  --color-primary-500: #22c55e;
-  --color-primary-600: #16a34a;
-  --color-primary-700: #15803d;
-  --color-primary-800: #166534;
-  --color-primary-900: #14532d;
-  --color-primary-950: #052e16;
+  --color-primary-50:  #eff4e7;
+  --color-primary-100: #e5eed5;
+  --color-primary-200: #d9e8b0;
+  --color-primary-300: #b3cb90;
+  --color-primary-400: #87a777;
+  --color-primary-500: #537955;
+  --color-primary-600: #365f45;
+  --color-primary-700: #2b503a;
+  --color-primary-800: #233d30;
+  --color-primary-900: #183328;
+  --color-primary-950: #10271f;
 
   /* ── Accent Amber (Konkan warmth / terracotta) ── */
   --color-accent-50:  #fffbeb;
@@ -38,18 +82,18 @@
 
   /* ── Neutral Stone (warm, not cold gray) ── */
   --color-neutral-0:   #ffffff;
-  --color-neutral-50:  #fafaf9;
-  --color-neutral-100: #f5f5f4;
-  --color-neutral-150: #efeeec;
-  --color-neutral-200: #e7e5e4;
-  --color-neutral-300: #d6d3d1;
-  --color-neutral-400: #a8a29e;
-  --color-neutral-500: #78716c;
-  --color-neutral-600: #57534e;
-  --color-neutral-700: #44403c;
-  --color-neutral-800: #292524;
-  --color-neutral-900: #1c1917;
-  --color-neutral-950: #0c0a09;
+  --color-neutral-50:  #f7f6f0;
+  --color-neutral-100: #efefe7;
+  --color-neutral-150: #e9ebe1;
+  --color-neutral-200: #e1e5db;
+  --color-neutral-300: #bdc8bb;
+  --color-neutral-400: #78877b;
+  --color-neutral-500: #58685e;
+  --color-neutral-600: #475a4e;
+  --color-neutral-700: #384b40;
+  --color-neutral-800: #263d31;
+  --color-neutral-900: #152d23;
+  --color-neutral-950: #10271f;
 
   /* ── Semantic Colors ── */
   --color-success-light: #dcfce7;
@@ -75,6 +119,7 @@
 
   /* ── Shadows ── */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-panel: var(--panel-shadow);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07);
@@ -90,6 +135,7 @@
    BASE STYLES
    ============================================================ */
 
+@layer base {
 *,
 *::before,
 *::after {
@@ -112,7 +158,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   color: var(--color-neutral-900);
   line-height: 1.25;
   font-weight: 700;
@@ -146,15 +192,32 @@ select {
 }
 
 /* Focus ring — accessible but non-intrusive */
-:focus-visible {
-  outline: 2px solid var(--color-primary-500);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
 }
 
-/* Remove default focus for mouse users */
-:focus:not(:focus-visible) {
-  outline: none;
+:focus-visible {
+  outline: 2px solid var(--focus-color, var(--color-primary-500));
+  outline-offset: 3px;
+}
+
+.theme-forest {
+  color-scheme: dark;
+  --focus-color: var(--lime);
+  background-color: var(--forest);
+  color: var(--ivory);
+}
+
+::selection {
+  color: var(--forest);
+  background-color: var(--lime);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ============================================================
@@ -236,3 +299,209 @@ select {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
+
+.dashboard-sidebar-nav {
+  scrollbar-color: #728a7a transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.dashboard-sidebar-link { color: #edf1e6; }
+.dashboard-sidebar-link:hover { background-color: rgb(255 255 255 / 10%); }
+.dashboard-sidebar-link[aria-current="page"] { background-color: var(--lime); color: var(--forest); }
+.dashboard-sidebar-link:focus-visible { outline-offset: -2px; }
+.dashboard-sidebar-link[aria-current="page"]:focus-visible { outline-color: var(--forest); }
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: fit-content;
+  font-size: 1.14rem;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
+}
+
+.brand-mark {
+  display: grid;
+  flex: none;
+  width: 2.2rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 0.72rem;
+  background-color: var(--forest);
+  color: var(--lime);
+}
+
+.theme-forest .brand-mark {
+  background-color: var(--lime);
+  color: var(--forest);
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.65rem;
+  left: 0.65rem;
+  padding: 0.7rem 1rem;
+  border-radius: 0.65rem;
+  background: white;
+  color: var(--forest);
+  font-weight: 700;
+  transform: translateY(-180%);
+}
+.skip-link:focus { transform: translateY(0); }
+
+.public-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--line);
+  background-color: var(--ivory);
+  color: var(--forest);
+}
+.public-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; min-height: 4.35rem; }
+.public-desktop-nav, .public-desktop-actions { display: none; }
+.public-nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding-inline: 0.65rem;
+  border-radius: 0.55rem;
+  font-size: 0.91rem;
+  font-weight: 600;
+  transition: background-color 150ms ease;
+}
+.public-nav-link:hover, .public-nav-link[aria-current="page"] { background-color: #e8eedc; }
+.public-menu-button {
+  display: grid;
+  width: 2.75rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: #e8eedc;
+}
+.public-mobile-panel { border-top: 1px solid var(--line); padding-block: 0.65rem 1rem; }
+@media (min-width: 70rem) {
+  .public-desktop-nav, .public-desktop-actions { display: flex; align-items: center; gap: 0.25rem; }
+  .public-menu-button, .public-mobile-panel { display: none; }
+}
+
+.public-footer-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr;
+  gap: 2rem;
+  padding-block: clamp(2.25rem, 5vw, 4rem);
+}
+.public-footer h2 { margin-bottom: 0.6rem; color: var(--ivory); font-size: 0.95rem; }
+.public-footer ul { color: #d7e2d5; font-size: 0.92rem; }
+.public-footer li a { display: inline-flex; align-items: center; min-height: 2rem; }
+.public-footer li a:hover { color: var(--lime); text-decoration: underline; text-underline-offset: 0.18em; }
+.public-footer-description { max-width: 19rem; margin-top: 1rem; color: #c5d4c6; }
+.public-footer-base {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem 2rem;
+  padding-block: 1.15rem;
+  border-top: 1px solid #3e5549;
+  color: #c5d4c6;
+  font-size: 0.86rem;
+}
+@media (max-width: 38rem) {
+  .public-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.35rem; }
+  .public-footer-grid > div:first-child { grid-column: 1 / -1; }
+}
+
+.page-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.15rem 2rem;
+  padding: clamp(1.25rem, 3.3vw, 2.5rem);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: radial-gradient(ellipse at top right, #edf2e1, transparent 66%), #fff;
+  box-shadow: var(--panel-shadow);
+}
+
+.page-intro-content { min-width: 0; }
+.page-intro h1 {
+  color: var(--forest);
+  font-family: var(--font-heading);
+  font-size: clamp(2.65rem, 5vw, 4.4rem);
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.page-intro-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.8rem;
+  color: #345b3f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.page-intro-icon {
+  display: grid;
+  width: 1.9rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 0.55rem;
+  background-color: #e5edda;
+}
+.page-intro-icon svg { width: 1rem; height: 1rem; stroke-width: 1.7; }
+.page-intro-description { max-width: 41rem; margin-top: 0.7rem; color: var(--muted); }
+.page-intro-actions { display: flex; max-width: 100%; flex-wrap: wrap; gap: 0.6rem; }
+.page-intro.theme-forest {
+  border-color: #2d4e3d;
+  background: radial-gradient(ellipse at 100% 0%, #365b46, transparent 64%), var(--forest);
+}
+.page-intro.theme-forest h1 { color: var(--ivory); }
+.page-intro.theme-forest .page-intro-label { color: var(--lime); }
+.page-intro.theme-forest .page-intro-description { color: #e2eadd; }
+.page-intro.theme-forest .page-intro-icon { background-color: #385745; }
+.page-intro.page-intro-photo {
+  background-image: linear-gradient(90deg, #10271f 10%, rgb(16 39 31 / 91%) 46%, rgb(16 39 31 / 50%)),
+    url("/images/konkan-rice-fields.webp");
+  background-position: center, right 62%;
+  background-size: cover;
+}
+@media (max-width: 40rem) {
+  .page-intro.page-intro-photo {
+    background-image: linear-gradient(90deg, #10271f 4%, rgb(16 39 31 / 86%)), url("/images/konkan-rice-fields.webp");
+  }
+}
+
+.directory-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1rem, 2.7vw, 2rem);
+  padding-block: clamp(1.35rem, 5vw, 3.5rem);
+}
+
+.directory-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.85rem;
+  padding: clamp(0.8rem, 2vw, 1.25rem);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+.directory-filters > :first-child { flex: 1 1 16rem; }
+.directory-filters > * { min-width: 0; }
+@media (max-width: 39rem) {
+  .directory-filters { align-items: stretch; flex-direction: column; }
+  .directory-filters > :first-child { flex: 0 1 auto; }
+}
+
+#public-content, #dashboard-content { scroll-margin-top: 4.5rem; }

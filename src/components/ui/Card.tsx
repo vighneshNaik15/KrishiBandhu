@@ -1,4 +1,5 @@
 import React from 'react';
+import { Inbox } from 'lucide-react';
 
 // ── Card ──────────────────────────────────────────────────────
 
@@ -22,10 +23,10 @@ export function Card({ children, className = '', padding = 'md', hover = false, 
     <div
       onClick={onClick}
       className={[
-        'bg-white rounded-xl border border-neutral-200',
+        'bg-white rounded-xl border border-neutral-200 shadow-panel',
         hover
-          ? 'shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer'
-          : 'shadow-sm',
+          ? 'hover:border-primary-300 hover:shadow-md transition-[border-color,box-shadow] duration-150'
+          : '',
         paddingStyles[padding],
         className,
       ]
@@ -47,13 +48,6 @@ interface StatCardProps {
   accentColor?: 'green' | 'amber' | 'blue' | 'red';
 }
 
-const accentStyles = {
-  green: 'border-l-primary-500 bg-primary-50/30',
-  amber: 'border-l-accent-500 bg-accent-50/30',
-  blue:  'border-l-blue-500 bg-blue-50/30',
-  red:   'border-l-red-500 bg-red-50/30',
-};
-
 const accentIconBg = {
   green: 'bg-primary-100 text-primary-700',
   amber: 'bg-accent-100 text-accent-700',
@@ -69,17 +63,11 @@ export function StatCard({
   accentColor = 'green',
 }: StatCardProps) {
   return (
-    <div
-      className={[
-        'bg-white rounded-xl border border-neutral-200 shadow-sm',
-        'border-l-4 p-5',
-        accentStyles[accentColor],
-      ].join(' ')}
-    >
-      <div className="flex items-start justify-between gap-3">
+    <Card padding="sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-500 mb-1">{label}</p>
-          <p className="text-2xl font-bold text-neutral-900">{value}</p>
+          <p className="text-sm font-medium text-neutral-600">{label}</p>
+          <p className="mt-1 font-heading text-4xl leading-none tabular-nums text-forest">{value}</p>
           {subtitle && (
             <p className="text-xs text-neutral-500 mt-1">{subtitle}</p>
           )}
@@ -90,7 +78,7 @@ export function StatCard({
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -106,17 +94,24 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon, title, description, action, className = '' }: EmptyStateProps) {
   return (
-    <div className={`flex flex-col items-center justify-center py-16 px-4 text-center ${className}`}>
-      {icon && (
-        <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4 text-neutral-400">
-          {icon}
-        </div>
-      )}
-      <h3 className="text-lg font-semibold text-neutral-700 mb-1">{title}</h3>
+    <div className={`flex flex-col items-center justify-center px-3 py-9 text-center sm:py-12 ${className}`}>
+      <div className="mb-4 grid size-12 place-items-center rounded-xl bg-primary-50 text-primary-700" aria-hidden>
+        {icon ?? <Inbox className="size-5" />}
+      </div>
+      <h3 className="mb-1 text-lg font-semibold text-forest">{title}</h3>
       {description && (
         <p className="text-sm text-neutral-500 max-w-sm mb-5">{description}</p>
       )}
       {action}
+    </div>
+  );
+}
+
+export function LoadingState({ label, className = '' }: { label: string; className?: string }) {
+  return (
+    <div role="status" className={`flex min-h-28 items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 ${className}`}>
+      <span aria-hidden className="size-4 shrink-0 animate-spin rounded-full border-2 border-primary-200 border-t-primary-700 motion-reduce:animate-none" />
+      {label}
     </div>
   );
 }
