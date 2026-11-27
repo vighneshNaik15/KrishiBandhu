@@ -1,7 +1,8 @@
-import hashlib
+import asyncio
 import logging
 import os
-import threading
+from collections.abc import AsyncGenerator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 from time import monotonic
@@ -10,24 +11,21 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.responses import JSONResponse
-from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
+from starlette.formparsers import MultiPartException, MultiPartParser
 
 from app.image_processing import (
     InvalidImageError,
     MAX_IMAGE_BYTES,
     preprocess_image,
 )
+from app.model_cache import CropModelCache, ModelUnavailableError
 from app.model_config import INPUT_SIZE, MODELS
-from app.scoring import softmax_scores, uncertainty_reasons
+from app.scoring import uncertainty_reasons
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("crop-inference")
 
-_models: dict[str, Any] = {}
-_model_status: dict[str, dict[str, Any]] = {}
-_prediction_lock = threading.Lock()
 _inference_window = 0.0
 _inference_counts: dict[str, int] = {}
 _inference_total = 0
@@ -57,76 +55,18 @@ def _model_directory() -> Path:
     return Path(configured).expanduser() if configured else Path(__file__).parent.parent / "models"
 
 
-def _load_models() -> None:
-    try:
-        import tensorflow as tf
-        import tensorflow_hub as hub
-    except ImportError:
-        logger.exception("TensorFlow and TensorFlow Hub are required to load crop models.")
-        for crop, config in MODELS.items():
-            _model_status[crop] = {
-                "model_id": config.model_id,
-                "available": False,
-                "version": None,
-                "error": "tensorflow_runtime_unavailable",
-            }
-        return
-
-    model_directory = _model_directory()
-    for crop, config in MODELS.items():
-        model_path = model_directory / config.filename
-        if not model_path.is_file():
-            _model_status[crop] = {
-                "model_id": config.model_id,
-                "available": False,
-                "version": None,
-                "error": "model_file_missing",
-            }
-            logger.error("Model file is missing for crop %s.", crop)
-            continue
-
-        try:
-            model = tf.keras.models.load_model(
-                model_path,
-                custom_objects={"KerasLayer": hub.KerasLayer},
-                compile=False,
-            )
-            input_shape = tuple(model.input_shape)
-            output_shape = tuple(model.output_shape)
-            if input_shape[1:] != (*INPUT_SIZE, 3):
-                raise ValueError(f"Unexpected model input shape: {input_shape}")
-            if output_shape[-1] != len(config.labels):
-                raise ValueError(f"Unexpected model output shape: {output_shape}")
-
-            digest = hashlib.sha256()
-            with model_path.open("rb") as model_file:
-                for chunk in iter(lambda: model_file.read(1024 * 1024), b""):
-                    digest.update(chunk)
-
-            _models[crop] = model
-            _model_status[crop] = {
-                "model_id": config.model_id,
-                "available": True,
-                "version": digest.hexdigest(),
-                "error": None,
-            }
-            logger.info("Loaded model %s for %s.", config.model_id, crop)
-        except Exception:
-            _model_status[crop] = {
-                "model_id": config.model_id,
-                "available": False,
-                "version": None,
-                "error": "model_load_failed",
-            }
-            logger.exception("Could not load crop model %s.", config.model_id)
-
-
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    _load_models()
-    yield
-    _models.clear()
-    _model_status.clear()
+async def lifespan(application: FastAPI):
+    cache = CropModelCache(_model_directory(), os.getenv("CROP_MODEL_RUNTIME", "keras"))
+    application.state.model_cache = cache
+    application.state.inference_slot = asyncio.Lock()
+    # Keep Keras session setup, inference and teardown on the same thread.
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        application.state.inference_executor = executor
+        try:
+            yield
+        finally:
+            await asyncio.get_running_loop().run_in_executor(executor, cache.close)
 
 
 app = FastAPI(
@@ -199,19 +139,12 @@ def _authenticated_farmer(
     return uid
 
 
-def _predict(crop: str, image_batch: Any) -> dict[str, Any]:
+def _predict(cache: CropModelCache, crop: str, image_batch: Any) -> dict[str, Any]:
     config = MODELS[crop]
-    model = _models.get(crop)
-    status = _model_status.get(crop, {})
-    if model is None or not status.get("available"):
-        raise HTTPException(status_code=503, detail=f"The {crop} model is not available.")
-
     try:
-        with _prediction_lock:
-            logits = model.predict(image_batch, verbose=0)
-        scores = softmax_scores(logits, len(config.labels))
-    except HTTPException:
-        raise
+        version, scores = cache.predict(crop, image_batch)
+    except ModelUnavailableError as error:
+        raise HTTPException(status_code=503, detail=f"The {crop} model is not available.") from error
     except Exception as error:
         logger.exception("Inference failed for crop %s.", crop)
         raise HTTPException(status_code=500, detail="The crop image could not be analyzed.") from error
@@ -225,7 +158,7 @@ def _predict(crop: str, image_batch: Any) -> dict[str, Any]:
         "crop": crop,
         "predicted_class": ranked[0][0],
         "model_id": config.model_id,
-        "model_version": status["version"],
+        "model_version": version,
         "scores": [
             {"class_name": label, "score": float(score)}
             for label, score in ranked
@@ -234,20 +167,17 @@ def _predict(crop: str, image_batch: Any) -> dict[str, Any]:
 
 
 @app.get("/health")
-def health() -> JSONResponse:
-    ready = len(_models) == len(MODELS)
-    return JSONResponse(
-        status_code=200 if ready else 503,
-        content={
-            "status": "ok" if ready else "degraded",
-            "models_loaded": len(_models),
-            "models_expected": len(MODELS),
-        },
-    )
+async def health(request: Request) -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "models_loaded": request.app.state.model_cache.loaded_count,
+        "models_expected": len(MODELS),
+    }
 
 
 @app.get("/models")
-def model_status() -> dict[str, Any]:
+async def model_status(request: Request) -> dict[str, Any]:
+    cache = request.app.state.model_cache
     return {
         "input_size": list(INPUT_SIZE),
         "preprocessing": "RGB float32 values scaled to [0, 1] by division by 255",
@@ -256,18 +186,47 @@ def model_status() -> dict[str, Any]:
                 "crop": crop,
                 "model_id": config.model_id,
                 "classes": list(config.labels),
-                **_model_status.get(
-                    crop,
-                    {
-                        "available": False,
-                        "version": None,
-                        "error": "model_not_loaded",
-                    },
-                ),
+                **cache.status(crop),
             }
             for crop, config in MODELS.items()
         ],
     }
+
+
+_MAX_MULTIPART_BYTES = MAX_IMAGE_BYTES + 64 * 1024
+_IMAGE_SIZE_MESSAGE = "The image must be 5 MB or smaller."
+
+
+class UploadTooLarge(MultiPartException):
+    pass
+
+
+async def _bounded_body(request: Request) -> AsyncGenerator[bytes, None]:
+    received = 0
+    async for chunk in request.stream():
+        received += len(chunk)
+        if received > _MAX_MULTIPART_BYTES:
+            raise UploadTooLarge(_IMAGE_SIZE_MESSAGE)
+        yield chunk
+
+
+async def _read_image(request: Request) -> tuple[str, bytes]:
+    parser = MultiPartParser(request.headers, _bounded_body(request), max_files=1, max_fields=1)
+    try:
+        form = await parser.parse()
+    except UploadTooLarge as error:
+        raise HTTPException(status_code=413, detail=error.message) from error
+    except MultiPartException as error:
+        raise HTTPException(status_code=400, detail=error.message) from error
+
+    try:
+        crop = form.get("crop")
+        image = form.get("image")
+        if not isinstance(crop, str) or crop not in MODELS or not isinstance(image, UploadFile):
+            raise HTTPException(status_code=422, detail="Choose a supported crop and attach a photo.")
+        return crop, await image.read(MAX_IMAGE_BYTES + 1)
+    finally:
+        await form.close()
 
 
 @app.post("/predict")
@@ -277,39 +236,27 @@ async def predict(
 ) -> dict[str, Any]:
     if not request.headers.get("content-type", "").lower().startswith("multipart/form-data;"):
         raise HTTPException(status_code=415, detail="Use a multipart crop photo upload.")
-    max_body = MAX_IMAGE_BYTES + 64 * 1024
     try:
         declared_size = int(request.headers.get("content-length", "0"))
     except ValueError as error:
         raise HTTPException(status_code=400, detail="Invalid content length.") from error
-    if declared_size > max_body:
-        raise HTTPException(status_code=413, detail="The image must be 5 MB or smaller.")
+    if declared_size > _MAX_MULTIPART_BYTES:
+        raise HTTPException(status_code=413, detail=_IMAGE_SIZE_MESSAGE)
 
     _limit_inference(farmer_uid)
-    body = bytearray()
-    async for chunk in request.stream():
-        if len(body) + len(chunk) > max_body:
-            raise HTTPException(status_code=413, detail="The image must be 5 MB or smaller.")
-        body.extend(chunk)
+    # Keep only one request's upload, decoded image and inference in flight.
+    state = request.app.state
+    loop = asyncio.get_running_loop()
+    async with state.inference_slot:
+        crop, contents = await _read_image(request)
+        try:
+            prepared = await loop.run_in_executor(state.inference_executor, preprocess_image, contents)
+        except InvalidImageError as error:
+            status_code = 413 if len(contents) > MAX_IMAGE_BYTES else 400
+            raise HTTPException(status_code=status_code, detail=str(error)) from error
+        del contents
 
-    async def receive() -> dict[str, Any]:
-        return {"type": "http.request", "body": bytes(body), "more_body": False}
-
-    bounded_request = Request(request.scope, receive)
-    async with bounded_request.form(max_files=1, max_fields=1) as form:
-        crop = form.get("crop")
-        image = form.get("image")
-        if not isinstance(crop, str) or crop not in MODELS or not isinstance(image, UploadFile):
-            raise HTTPException(status_code=422, detail="Choose a supported crop and attach a photo.")
-        contents = await image.read(MAX_IMAGE_BYTES + 1)
-    try:
-        prepared = preprocess_image(contents)
-    except InvalidImageError as error:
-        message = str(error)
-        status_code = 413 if len(contents) > MAX_IMAGE_BYTES else 400
-        raise HTTPException(status_code=status_code, detail=message) from error
-
-    result = await run_in_threadpool(_predict, crop, prepared.batch)
+        result = await loop.run_in_executor(state.inference_executor, _predict, state.model_cache, crop, prepared.batch)
     reasons = uncertainty_reasons(
         [score["score"] for score in result["scores"]],
         prepared.source_width,

@@ -16,12 +16,18 @@ class InferenceRequestTests(unittest.TestCase):
         async def send(message):
             messages.append(message)
 
-        asyncio.run(app({
+        scope = {
             "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
             "method": "POST", "scheme": "http", "path": "/predict", "raw_path": b"/predict",
             "root_path": "", "query_string": b"", "headers": headers,
             "client": ("127.0.0.1", 10000), "server": ("127.0.0.1", 8000),
-        }, receive, send))
+        }
+
+        async def call_app():
+            async with app.router.lifespan_context(app):
+                await app(scope, receive, send)
+
+        asyncio.run(call_app())
         return messages[0]["status"]
 
     def test_requires_sign_in_before_processing_upload(self):
