@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { authorizeAi, readAiJson } from '../access';
 import { generateGeminiJson } from '../gemini';
 
+export const maxDuration = 60;
+
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const RequestBodySchema = z.object({

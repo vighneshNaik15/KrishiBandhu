@@ -78,7 +78,9 @@ export function CropDoctorPage() {
       })
       .catch((error: unknown) => {
         if (active) {
-          setServiceError(error instanceof TypeError ? 'Cannot reach the inference service. Check that FastAPI is running and allows this site origin, then reload.' : error instanceof Error ? error.message : 'Model status could not be loaded.');
+          setServiceError(error instanceof TypeError
+            ? 'The crop analysis service could not be reached. Try again later.'
+            : error instanceof Error ? error.message : 'Model status could not be loaded.');
         }
       });
     return () => {

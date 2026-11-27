@@ -16,7 +16,7 @@ export async function authorizeAi(request: Request): Promise<Response | null> {
   const token = request.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9_.-]{1,4096})$/i)?.[1];
   if (!token) return errorResponse(401, 'Sign in as a farmer to continue.');
   const project = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const key = process.env.FIREBASE_AUTH_API_KEY?.trim() || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!project || !key) return errorResponse(503, 'Sign-in verification is unavailable.');
 
   const demo = project === 'demo-krishibandhu' && process.env.NEXT_PUBLIC_FIREBASE_EMULATORS === '1';

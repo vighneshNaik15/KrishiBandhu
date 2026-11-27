@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Briefcase, Clock, CheckCircle, XCircle, MapPin, Calendar, IndianRupee } from 'lucide-react';
+import { Briefcase, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { jobService } from '@/services/jobService';
 import { Card, EmptyState } from '@/components/ui/Card';
@@ -10,7 +10,6 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ROUTES } from '@/lib/constants';
-import { JOB_CATEGORY_LABELS } from '@/models/job';
 import { formatDate } from '@/utils/formatters';
 import { getFirebaseLoadErrorMessage } from '@/utils/firebaseErrors';
 import type { JobApplication } from '@/models/job';

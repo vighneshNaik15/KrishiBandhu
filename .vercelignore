@@ -1,0 +1,7 @@
+.env*
+/.next/
+/coverage/
+/services/crop-inference/
+*.pem
+*-debug.log*
+*.tsbuildinfo

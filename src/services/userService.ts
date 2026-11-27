@@ -5,13 +5,11 @@ import {
   getDocs,
   setDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
   limit,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants';

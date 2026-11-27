@@ -27,11 +27,11 @@ KrishiBandhu is an integrated, AI-powered agriculture management platform connec
 
 ## Technology
 
-Next.js 16 (App Router), React, TypeScript, Tailwind CSS, Firebase Authentication, Cloud Firestore, read-only Firebase Storage support for legacy photos, a separate Python FastAPI/TensorFlow crop-inference service, the existing Google Gen AI SDK (`@google/genai`), Open-Meteo, Leaflet, and OpenStreetMap. Existing frontend dependency versions and routes are retained; modules are delivered incrementally.
+Next.js 16 (App Router), React, TypeScript, Tailwind CSS, Firebase Authentication, Cloud Firestore, read-only Firebase Storage support for legacy photos, a separate Python FastAPI/TensorFlow crop-inference service, server-side Gemini REST calls, Open-Meteo, Leaflet, and OpenStreetMap.
 
 ## Current implementation status
 
-This repository is an in-progress foundation, not a production-complete implementation of every module above. Farmer registration and farm/crop records, labour listings/applications, product listings, the Goa Harvest & Storage slice, a farmer weather dashboard, and the AI Crop Doctor source workflow have connected code. The weather dashboard uses India-only Open-Meteo geocoding and current/seven-day forecast data, preferring saved farm coordinates when present and otherwise letting the farmer choose a searched location. Its weather-aware planning notes are general information, not crop-specific advice. The separate crop service, Firebase rules/indexes, and real-user workflows still require setup and deployment; no model inference or Firebase persistence is claimed as tested until those steps pass. Krishi Mitra chat, expert-request workflow, disease-specific reference-backed guidance, scheme discovery, worker profile persistence, general service bookings, and complete buyer checkout are not implemented. In particular, Firestore rules currently deny order creation until a stock-safe flow is added. Local rules and indexes must be published separately; they have not been deployed automatically.
+The current release includes role registration, farm and crop records, offline farm sync, labour listings and applications, the Goa Harvest & Storage pilot, weather, and AI advisory and scheme search. Buyers can request orders, and sellers commit stock when accepting them. Payment processing and general service bookings remain outside the current release. Crop Doctor requires the separate inference service, and legacy photos require an accessible Firebase Storage bucket.
 
 The current source audit, validation results, and remaining gaps are recorded in [the audit report](docs/audit-report.md) and [implementation roadmap](docs/implementation-roadmap.md).
 
@@ -68,7 +68,19 @@ copy .env.example .env.local
 npm run dev
 ```
 
-The Gemini key must remain server-side and must not use a `NEXT_PUBLIC_` prefix. Open-Meteo does not require an API key. The crop inference service is separate; its setup, model files, pinned Python runtime, and limits are documented in [the service guide](services/crop-inference/README.md). Configure and deploy Firebase rules/indexes before using real accounts or data. See [architecture](docs/architecture.md) and [database schema](docs/database-schema.md).
+Keep the Gemini key server-side as `GEMINI_API_KEY`. The free Open-Meteo endpoint requires no key. The crop inference service has its own setup, model files, and pinned Python runtime. See [the service guide](services/crop-inference/README.md).
+
+### Deploy to Vercel
+
+1. After deployment approval, run `npx.cmd vercel@latest link` from the repository root and select or create the Vercel project. Set the framework preset to **Next.js**, Root Directory to the repository root, Node.js to **22.x**, and leave the default install, build, and output settings. Keep **Automatically expose System Environment Variables** enabled for the Vercel build checks.
+2. Under **Settings → Environment Variables**, set the production values from [`.env.example`](.env.example). Copy Firebase values from **Project settings → General → Your apps → Web app → SDK setup and configuration**. Keep its Firebase-provided `authDomain` value. Add `GEMINI_API_KEY` as a sensitive server variable for advisory and schemes. Set `NEXT_PUBLIC_CROP_DOCTOR_API_URL` after the separate HTTPS service is ready. The storage bucket is optional for legacy photos. Enable the same variables for Preview only if that environment should use those services.
+3. In **Firebase Console → Authentication → Sign-in method**, confirm **Email/Password** is enabled. In **Authentication → Settings → Authorized domains**, add the exact production hostname from Vercel, with no scheme or path. Add a custom domain and any fixed preview hostname you intend to test as separate entries. Do this after the first deploy if the hostname is assigned then. The deployed app uses email/password sign-in and password reset.
+4. Run `npx.cmd vercel@latest deploy --prod` from the repository root. Vercel builds the Next.js application using the configured environment variables. Deploy again after changing a `NEXT_PUBLIC_` value so the browser assets pick it up.
+5. On the final HTTPS origin, use dedicated test accounts to check farmer, buyer, and worker registration, login and password reset. List a product, request an order and accept it as the seller. Open **My Farms** online until offline access is ready, disconnect, reload and edit a farm, then reconnect and confirm the update. Test advisory and schemes with the Gemini key, plus Crop Doctor after its HTTPS service is configured.
+
+The active Firestore release matched [`deploy/firestore-targeted/candidate.rules`](deploy/firestore-targeted/candidate.rules) in the production audit. All composite indexes used by current screens were ready. Any database changes belong in a separate review and release. See [Vercel deployment from the CLI](https://vercel.com/docs/projects/deploy-from-cli) and [Firebase Authentication troubleshooting](https://firebase.google.com/docs/auth/faq-and-troubleshooting).
+
+Vercel Hobby and the free Open-Meteo endpoint are for non-commercial use. Firebase Auth and Firestore can serve the core app within Spark quotas. Legacy Firebase Storage photos require an accessible Blaze bucket. Gemini text generation has its own quota, and Crop Doctor needs a separate container host. See [Vercel Hobby](https://vercel.com/docs/plans/hobby), [Open-Meteo pricing](https://open-meteo.com/en/pricing), [Firestore quotas](https://firebase.google.com/docs/firestore/pricing), and [Firebase Storage requirements](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024).
 
 ### Working without persistent photo storage
 
@@ -89,7 +101,7 @@ Marketplace listings can be created and edited without photos. Harvest requests 
 
 ## Delivery approach
 
-Work is phase-gated: complete and verify each vertical workflow before expanding scope. The Open-Meteo farmer weather dashboard and AI Crop Doctor source workflow are present; validate the separate model runtime and publish Firebase rules/indexes before enabling production use. Krishi Mitra chat, expert requests, service bookings, schemes, and operational analytics remain future work. The current repository audit and phase gates are in [the roadmap](docs/implementation-roadmap.md).
+Work is phase-gated: complete and verify each vertical workflow before expanding scope. The current repository roadmap and phase gates are in [the roadmap](docs/implementation-roadmap.md).
 
 ## Project identity
 
